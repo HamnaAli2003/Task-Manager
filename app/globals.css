@@ -1,26 +1,502 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/* ──────────────────────────────────────────────────────────────
+   Tailwind v4 — Class Based Dark Mode
+   ────────────────────────────────────────────────────────────── */
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Clay custom select trigger (replaces native select corners/shadows) */
+@utility select-trigger {
+  border-radius: 1.125rem;
+  box-shadow: var(--clay-inset-high), var(--clay-inset-low), var(--clay-drop);
+  cursor: pointer;
+  transition: box-shadow 200ms ease, border-color 200ms ease, transform 200ms ease;
+
+  &:hover {
+    box-shadow: var(--clay-inset-high), var(--clay-inset-low), 0 14px 28px -12px rgba(120, 90, 180, 0.45);
+    transform: translateY(-1px);
+  }
 }
 
+/* Clay panel used for custom dropdown popups */
+@utility clay-panel {
+  border-radius: 1.125rem;
+  box-shadow: var(--clay-inset-high), var(--clay-inset-low), var(--clay-deep);
+}
+
+/* Scroll container with a visible-content scrollbar hidden */
+@utility hide-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
+
+  &::-webkit-scrollbar-track,
+  &::-webkit-scrollbar-thumb {
+    background: transparent;
+  }
+}
+
+/* Visible, themed scrollbar for capped/scrollable panels */
+.nice-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+
+  &::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 999px;
+  }
+
+  &::-webkit-scrollbar-thumb:hover {
+    background: var(--text-muted);
+  }
+}
+
+
+/* ──────────────────────────────────────────────────────────────
+   Light Mode
+   ────────────────────────────────────────────────────────────── */
+
+:root {
+  color-scheme: light;
+
+  /* Accents */
+  --accent: #7c5cf0;
+  --accent-2: #ef6aa3;
+  --accent-soft: rgba(124, 92, 240, 0.14);
+
+  /* Primary (maps to accent) */
+  --primary: #7c5cf0;
+  --primary-hover: #6a4de8;
+  --primary-light: rgba(124, 92, 240, 0.14);
+  --primary-muted: rgba(124, 92, 240, 0.10);
+
+  --accent-hover: #6a4de8;
+
+  /* Backgrounds */
+  --background: #ece7f7;
+  --surface: #ece7f7;
+  --surface-elevated: #f8f3fd;
+
+  /* Text */
+  --text: #241f38;
+  --text-secondary: #4a4360;
+  --text-muted: #6f6885;
+  --text-strong: #241f38;
+
+  /* Borders */
+  --border: rgba(108, 90, 160, 0.18);
+  --border-light: rgba(108, 90, 160, 0.08);
+
+  /* Semantic */
+  --success: #2eb67d;
+  --success-light: rgba(46, 182, 125, 0.12);
+
+  --warning: #fbbf24;
+  --warning-light: rgba(251, 191, 36, 0.12);
+
+  --danger: #e5484d;
+  --danger-light: rgba(229, 72, 77, 0.12);
+
+  --info: #0ea5e9;
+  --info-light: rgba(14, 165, 233, 0.12);
+
+  /* Status */
+  --status-todo: #94a3b8;
+  --status-in-progress: #818cf8;
+  --status-review: #fbbf24;
+  --status-done: #34d399;
+
+  /* Status text (readable on light backgrounds) */
+  --status-todo-text: #475569;
+  --status-in-progress-text: #4338ca;
+  --status-review-text: #92400e;
+  --status-done-text: #047857;
+
+  /* Priority */
+  --priority-low: #60a5fa;
+  --priority-medium: #fbbf24;
+  --priority-high: #fb923c;
+  --priority-urgent: #f87171;
+
+  /* Priority text (readable on light backgrounds) */
+  --priority-low-text: #1d4ed8;
+  --priority-medium-text: #a16207;
+  --priority-high-text: #c2410c;
+  --priority-urgent-text: #b91c1c;
+
+  /* Focus Ring */
+  --ring: rgba(124, 92, 240, 0.55);
+
+  /* Glass */
+  --glass-bg: rgba(255, 255, 255, 0.52);
+  --glass-border: rgba(255, 255, 255, 0.72);
+  --glass-shadow: 0 8px 32px rgba(96, 64, 156, 0.14);
+
+  /* Clay */
+  --clay-bg: linear-gradient(150deg, #f8f3fd 0%, #efe8fa 100%);
+  --clay-edge: rgba(255, 255, 255, 0.85);
+  --clay-inset-high: inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  --clay-inset-low: inset 0 -2px 4px rgba(120, 90, 180, 0.08);
+  --clay-drop: 0 10px 22px -10px rgba(120, 90, 180, 0.35);
+  --clay-deep: 0 18px 40px -18px rgba(80, 50, 140, 0.4);
+
+  /* Fields */
+  --field-bg: rgba(255, 255, 255, 0.6);
+  --field-border: rgba(108, 90, 160, 0.18);
+  --field-inset: inset 0 2px 6px rgba(90, 70, 150, 0.08);
+
+  /* Blobs */
+  --blob-1: #b794f4;
+  --blob-2: #f2a9c7;
+  --blob-3: #f6b48f;
+  --blob-4: #d8edbd;
+
+  /* Clay card shadow (inset highlight + depth) */
+  --clay-card: var(--clay-inset-high), 0 18px 40px -18px rgba(80, 50, 140, 0.45);
+}
+
+
+/* ──────────────────────────────────────────────────────────────
+   Dark Mode
+   ────────────────────────────────────────────────────────────── */
+
+.dark {
+  color-scheme: dark;
+
+  /* Accents */
+  --accent: #9d86f8;
+  --accent-2: #f47ab6;
+  --accent-soft: rgba(157, 134, 248, 0.2);
+
+  /* Primary (maps to accent) */
+  --primary: #9d86f8;
+  --primary-hover: #ae9bfa;
+  --primary-light: rgba(157, 134, 248, 0.2);
+  --primary-muted: rgba(157, 134, 248, 0.14);
+
+  --accent-hover: #ae9bfa;
+
+  /* Backgrounds */
+  --background: #16112c;
+  --surface: #16112c;
+  --surface-elevated: #2c2448;
+
+  /* Text */
+  --text: #f1edfc;
+  --text-secondary: #c8bfe0;
+  --text-muted: #a79fc7;
+  --text-strong: #f1edfc;
+
+  /* Borders */
+  --border: rgba(150, 130, 210, 0.26);
+  --border-light: rgba(150, 130, 210, 0.1);
+
+  /* Semantic */
+  --success: #34d399;
+  --success-light: rgba(52, 211, 153, 0.12);
+
+  --warning: #fbbf24;
+  --warning-light: rgba(251, 191, 36, 0.12);
+
+  --danger: #e5484d;
+  --danger-light: rgba(229, 72, 77, 0.12);
+
+  --info: #0ea5e9;
+  --info-light: rgba(14, 165, 233, 0.12);
+
+  /* Status */
+  --status-todo: #94a3b8;
+  --status-in-progress: #818cf8;
+  --status-review: #fbbf24;
+  --status-done: #34d399;
+
+  /* Status text (readable on dark backgrounds) */
+  --status-todo-text: #e2e8f0;
+  --status-in-progress-text: #c7d2fe;
+  --status-review-text: #fde68a;
+  --status-done-text: #a7f3d0;
+
+  /* Priority */
+  --priority-low: #60a5fa;
+  --priority-medium: #fbbf24;
+  --priority-high: #fb923c;
+  --priority-urgent: #f87171;
+
+  /* Priority text (readable on dark backgrounds) */
+  --priority-low-text: #bfdbfe;
+  --priority-medium-text: #fde68a;
+  --priority-high-text: #fed7aa;
+  --priority-urgent-text: #fecaca;
+
+  /* Focus Ring */
+  --ring: rgba(157, 134, 248, 0.7);
+
+  /* Glass */
+  --glass-bg: rgba(44, 35, 74, 0.55);
+  --glass-border: rgba(140, 122, 205, 0.24);
+  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.38);
+
+  /* Clay */
+  --clay-bg: linear-gradient(150deg, #2c2448 0%, #241e3c 100%);
+  --clay-edge: rgba(255, 255, 255, 0.09);
+  --clay-inset-high: inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  --clay-inset-low: inset 0 -2px 4px rgba(0, 0, 0, 0.25);
+  --clay-drop: 0 10px 22px -10px rgba(0, 0, 0, 0.55);
+  --clay-deep: 0 18px 40px -18px rgba(0, 0, 0, 0.6);
+
+  /* Fields */
+  --field-bg: rgba(20, 15, 40, 0.4);
+  --field-border: rgba(150, 130, 210, 0.26);
+  --field-inset: inset 0 2px 6px rgba(0, 0, 0, 0.35);
+
+  /* Blobs */
+  --blob-1: #1f2c5e;
+  --blob-2: #27345f;
+  --blob-3: #1a274f;
+  --blob-4: #3f6b23;
+
+  /* Clay card shadow (inset highlight + depth) */
+  --clay-card: var(--clay-inset-high), 0 18px 40px -18px rgba(0, 0, 0, 0.65);
+}
+
+
+/* ──────────────────────────────────────────────────────────────
+   Tailwind v4 Theme Mapping
+   ────────────────────────────────────────────────────────────── */
+
 @theme inline {
+  /* Backgrounds */
   --color-background: var(--background);
-  --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-surface-elevated: var(--surface-elevated);
+
+  /* Accents */
+  --color-accent: var(--accent);
+  --color-accent-2: var(--accent-2);
+  --color-accent-soft: var(--accent-soft);
+
+  /* Primary */
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-light: var(--primary-light);
+  --color-primary-muted: var(--primary-muted);
+
+  --color-accent-hover: var(--accent-hover);
+
+  /* Text */
+  --color-text: var(--text);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-muted: var(--text-muted);
+  --color-text-strong: var(--text-strong);
+
+  /* Borders */
+  --color-border: var(--border);
+  --color-border-light: var(--border-light);
+
+  /* Semantic */
+  --color-success: var(--success);
+  --color-success-light: var(--success-light);
+  --color-warning: var(--warning);
+  --color-warning-light: var(--warning-light);
+  --color-danger: var(--danger);
+  --color-danger-light: var(--danger-light);
+  --color-info: var(--info);
+  --color-info-light: var(--info-light);
+
+  /* Status */
+  --color-status-todo: var(--status-todo);
+  --color-status-in-progress: var(--status-in-progress);
+  --color-status-review: var(--status-review);
+  --color-status-done: var(--status-done);
+
+  /* Status text */
+  --color-status-todo-text: var(--status-todo-text);
+  --color-status-in-progress-text: var(--status-in-progress-text);
+  --color-status-review-text: var(--status-review-text);
+  --color-status-done-text: var(--status-done-text);
+
+  /* Priority */
+  --color-priority-low: var(--priority-low);
+  --color-priority-medium: var(--priority-medium);
+  --color-priority-high: var(--priority-high);
+  --color-priority-urgent: var(--priority-urgent);
+
+  /* Priority text */
+  --color-priority-low-text: var(--priority-low-text);
+  --color-priority-medium-text: var(--priority-medium-text);
+  --color-priority-high-text: var(--priority-high-text);
+  --color-priority-urgent-text: var(--priority-urgent-text);
+
+  /* Glass */
+  --color-glass-bg: var(--glass-bg);
+  --color-glass-border: var(--glass-border);
+
+  /* Clay */
+  --color-clay-edge: var(--clay-edge);
+  --background-image-clay-bg: var(--clay-bg);
+
+  /* Fields */
+  --color-field-bg: var(--field-bg);
+  --color-field-border: var(--field-border);
+
+  /* Blobs */
+  --color-blob-1: var(--blob-1);
+  --color-blob-2: var(--blob-2);
+  --color-blob-3: var(--blob-3);
+  --color-blob-4: var(--blob-4);
+
+  /* Animations */
+  --animate-blob-1: blob-float-1 14s ease-in-out infinite;
+  --animate-blob-2: blob-float-2 18s ease-in-out infinite;
+  --animate-blob-3: blob-float-3 16s ease-in-out infinite;
+
+  /* Fonts */
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+
+/* ──────────────────────────────────────────────────────────────
+   Base Styles
+   ────────────────────────────────────────────────────────────── */
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
 }
 
 body {
+  margin: 0;
   background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  color: var(--text);
+
+  font-family:
+    var(--font-geist-sans),
+    system-ui,
+    -apple-system,
+    sans-serif;
+
+  -webkit-font-smoothing: antialiased;
+  transition:
+    background-color 350ms ease,
+    color 350ms ease;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+::selection {
+  background: var(--accent);
+  color: white;
+}
+
+
+/* ──────────────────────────────────────────────────────────────
+   Animated Background Orbs
+   ────────────────────────────────────────────────────────────── */
+
+@keyframes blob-float-1 {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  25% {
+    transform: translate3d(42vw, 20vh, 0) scale(1.04);
+  }
+  50% {
+    transform: translate3d(18vw, -12vh, 0) scale(0.98);
+  }
+  75% {
+    transform: translate3d(8vw, 34vh, 0) scale(1.02);
+  }
+}
+
+@keyframes blob-float-2 {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  25% {
+    transform: translate3d(-38vw, 28vh, 0) scale(1.03);
+  }
+  50% {
+    transform: translate3d(-16vw, -16vh, 0) scale(0.97);
+  }
+  75% {
+    transform: translate3d(6vw, 22vh, 0) scale(1.04);
+  }
+}
+
+@keyframes blob-float-3 {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  30% {
+    transform: translate3d(-26vw, -26vh, 0) scale(1.03);
+  }
+  60% {
+    transform: translate3d(28vw, -12vh, 0) scale(1.05);
+  }
+  85% {
+    transform: translate3d(14vw, -22vh, 0) scale(0.98);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-blob-1,
+  .animate-blob-2,
+  .animate-blob-3 {
+    animation: none;
+  }
+}
+
+
+/* ──────────────────────────────────────────────────────────────
+   Dark Mode — Calmer, softer orbs
+   ────────────────────────────────────────────────────────────── */
+
+.dark .animate-blob-1 {
+  animation-duration: 22s;
+}
+
+.dark .animate-blob-2 {
+  animation-duration: 26s;
+}
+
+.dark .animate-blob-3 {
+  animation-duration: 24s;
 }
