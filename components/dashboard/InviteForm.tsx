@@ -1,8 +1,8 @@
 "use client";
 
 // Invite form: optional email + "Generate link" button.
-// On success shows the full invite URL with a Copy button so the
-// owner can share it (WhatsApp / email / anywhere).
+// Email case -> shows "Invite sent to {email}" (plus the link, still copyable).
+// Link-only case -> shows just the one-time link with Copy.
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { createInviteAction } from "@/app/(dashboard)/members/action";
@@ -17,6 +17,7 @@ export default function InviteForm({ workspaceId }: InviteFormProps) {
 
   const [email, setEmail] = useState("");
   const [error, setError] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
   const [inviteLink, setInviteLink] = useState("");
   const [copied, setCopied] = useState(false);
 
@@ -24,12 +25,14 @@ export default function InviteForm({ workspaceId }: InviteFormProps) {
     event.preventDefault();
 
     setError("");
+    setSuccessMessage("");
     setInviteLink("");
     setCopied(false);
+    const targetEmail = email.trim();
 
     startTransition(async () => {
       // Empty email = open link (anyone with it can join).
-      const result = await createInviteAction(workspaceId, email.trim());
+      const result = await createInviteAction(workspaceId, targetEmail);
 
       if (!result.ok || !result.inviteLink) {
         setError(result.error ?? "Could not create invite.");
@@ -37,6 +40,13 @@ export default function InviteForm({ workspaceId }: InviteFormProps) {
       }
 
       setInviteLink(result.inviteLink);
+
+      // Per UX spec: the "Invite sent" message appears ONLY when an email
+      // was written. Link-only invites just show the shareable link.
+      if (targetEmail) {
+        setSuccessMessage(`Invite sent to ${targetEmail}.`);
+      }
+
       router.refresh(); // pending-invites list updates
     });
   }
@@ -70,6 +80,7 @@ export default function InviteForm({ workspaceId }: InviteFormProps) {
           value={email}
           onChange={(event) => {
             setEmail(event.target.value);
+            setSuccessMessage("");
             if (error) setError("");
           }}
           placeholder="Leave empty for an open link"
@@ -114,6 +125,12 @@ export default function InviteForm({ workspaceId }: InviteFormProps) {
       >
         {isPending ? "Generating..." : "Generate invite link"}
       </button>
+
+      {successMessage && (
+        <p role="status" className="text-sm font-medium text-success">
+          {successMessage}
+        </p>
+      )}
 
       {/* Error (from validation or server action) */}
       {error && (

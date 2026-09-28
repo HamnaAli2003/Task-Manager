@@ -7,6 +7,7 @@ type CreateWorkspaceModalProps = {
     open: boolean;
     name: string;
     pending: boolean;
+    error?: string;
     onNameChange: (name: string) => void;
     onCancel: () => void;
     onSubmit: () => void;
@@ -19,6 +20,7 @@ export default function CreateWorkspaceModal({
     open,
     name,
     pending,
+    error,
     onNameChange,
     onCancel,
     onSubmit,
@@ -39,7 +41,7 @@ export default function CreateWorkspaceModal({
             role="dialog"
             aria-modal="true"
             aria-labelledby="create-workspace-title"
-            className="fixed inset-0 z-[999] flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-md"
+            className="fixed inset-0 z-999 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-md"
         >
             <button
                 type="button"
@@ -71,8 +73,16 @@ export default function CreateWorkspaceModal({
                     onChange={(event) => onNameChange(event.target.value)}
                     placeholder="Workspace name"
                     autoFocus
+                    aria-invalid={Boolean(error)}
+                    aria-describedby={error ? "create-workspace-error" : undefined}
                     className="mt-5 w-full rounded-xl border border-purple-200/60 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-purple-400 focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 dark:border-slate-600 dark:bg-slate-700/60 dark:text-slate-100 dark:placeholder:text-slate-400"
                 />
+
+                {error && (
+                    <p id="create-workspace-error" role="alert" className="mt-2 text-sm font-medium text-danger">
+                        {error}
+                    </p>
+                )}
 
                 <div className="mt-6 flex justify-end gap-3">
                     <button

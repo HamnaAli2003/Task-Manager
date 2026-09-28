@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { NotificationItem } from "@/lib/notifications.server";
 import {
+  deleteNotificationAction,
   markAllNotificationsReadAction,
   markNotificationReadAction,
 } from "@/app/(dashboard)/notifications/actions";
@@ -13,7 +14,6 @@ const TYPE_LABEL: Record<string, string> = {
   INVITE_ACCEPTED: "Invite accepted",
   MEMBER_JOINED: "New member",
   TASK_ASSIGNED: "Assignment",
-  TASK_DUE_SOON: "Due soon",
   CHAT_MESSAGE: "Message",
   WORKSPACE_RENAMED: "Workspace renamed",
   WORKSPACE_DELETED: "Workspace deleted",
@@ -37,9 +37,16 @@ export default function NotificationList({
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [localRead, setLocalRead] = useState<Set<string>>(new Set());
+  const [localDeleted, setLocalDeleted] = useState<Set<string>>(new Set());
 
-  const unread = notifications.filter(
-    (notification) => !notification.readAt && !localRead.has(notification.id)
+  // Locally-deleted rows disappear instantly; the DB delete runs in the
+  // background. Rows are per-recipient, so this NEVER affects other members.
+  const visible = notifications.filter(
+    (notification) => !localDeleted.has(notification.id),
+  );
+
+  const unread = visible.filter(
+    (notification) => !notification.readAt && !localRead.has(notification.id),
   ).length;
 
   function handleOpen(notification: NotificationItem) {
@@ -64,13 +71,24 @@ export default function NotificationList({
     });
   }
 
+  function handleDelete(notificationId: string) {
+    setLocalDeleted((current) => new Set(current).add(notificationId));
+
+    startTransition(async () => {
+      await deleteNotificationAction(notificationId);
+      router.refresh();
+    });
+  }
+
   return (
     <div className="space-y-4">
-      {notifications.length === 0 ? (
+      {visible.length === 0 ? (
         <div className="rounded-2xl border border-border-light bg-surface-elevated p-8 text-center">
-          <p className="text-sm font-medium text-text">No notifications yet.</p>
+          <p className="text-sm font-medium text-text">
+            No notifications in this workspace.
+          </p>
           <p className="mt-1 text-xs text-text-muted">
-            Updates from your workspaces will appear here.
+            Updates for the active workspace will appear here.
           </p>
         </div>
       ) : (
@@ -97,19 +115,22 @@ export default function NotificationList({
             </div>
           )}
 
-          {notifications.map((notification) => {
-            const isUnread = !notification.readAt && !localRead.has(notification.id);
+          {visible.map((notification) => {
+            const isUnread =
+              !notification.readAt && !localRead.has(notification.id);
 
             return (
-              <button
+              <div
                 key={notification.id}
-                type="button"
+                role="button"
+                tabIndex={0}
                 onClick={() => handleOpen(notification)}
-                disabled={pending}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") handleOpen(notification);
+                }}
                 className={`
-                  flex w-full items-start gap-4 rounded-2xl border p-4 text-left
+                  flex w-full cursor-pointer items-start gap-4 rounded-2xl border p-4 text-left
                   transition hover:-translate-y-0.5
-                  disabled:cursor-wait
                   ${
                     isUnread
                       ? "border-accent/30 bg-accent-soft shadow-(--clay-inset-high)"
@@ -139,7 +160,6 @@ export default function NotificationList({
                     </span>
 
                     <p className="text-xs text-text-muted">
-                      {notification.workspaceId ? "Workspace" : "General"} ·{" "}
                       {notification.createdAt.toLocaleString()}
                     </p>
                   </div>
@@ -151,7 +171,42 @@ export default function NotificationList({
                     className="mt-1.5 size-2 shrink-0 rounded-full bg-accent"
                   />
                 )}
-              </button>
+
+                {/* Per-recipient delete — deletion is never synced. */}
+                <button
+                  type="button"
+                  aria-label="Delete notification"
+                  title="Delete notification"
+                  disabled={pending}
+                  onClick={(event) => {
+                    event.stopPropagation(); // don't trigger open/mark-read
+                    handleDelete(notification.id);
+                  }}
+                  className="
+                    flex size-7 shrink-0 items-center justify-center
+                    rounded-lg text-text-muted
+                    transition hover:bg-danger/10 hover:text-danger
+                    disabled:cursor-wait disabled:opacity-50
+                  "
+                >
+                  <svg
+                    viewBox="0 0 24 24"
+                    className="size-4"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden="true"
+                  >
+                    <path d="M3 6h18" />
+                    <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
+                    <path d="M10 11v6" />
+                    <path d="M14 11v6" />
+                  </svg>
+                </button>
+              </div>
             );
           })}
         </>

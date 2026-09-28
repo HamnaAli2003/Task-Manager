@@ -5,12 +5,15 @@
 // usedAt) → notifications → redirect. Success never returns a value here —
 // redirect() throws a control-flow error Next.js handles.
 import { redirect } from "next/navigation";
+import { cookies } from "next/headers";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import {
     emitInviteAcceptedEvent,
     emitMemberJoinedEvent,
 } from "@/lib/notifications.server";
+
+const WORKSPACE_COOKIE = "pmp-workspace";
 
 export type AcceptInviteResult = { ok: boolean; error?: string };
 
@@ -96,6 +99,19 @@ export async function acceptInviteAction(
         await emitMemberJoinedEvent(invite.workspaceId, userId);
     }
 
-    // 6) Done — send them in.
+    // 6) Make the joined workspace the active one so the next /dashboard
+    //    load shows THIS team workspace's projects (and the switcher marks
+    //    👥 {name} as active). Cookie is only a hint — membership is
+    //    verified server-side on every request.
+    const cookieStore = await cookies();
+    cookieStore.set(WORKSPACE_COOKIE, invite.workspaceId, {
+        httpOnly: true,
+        sameSite: "lax",
+        secure: process.env.NODE_ENV === "production",
+        path: "/",
+        maxAge: 60 * 60 * 24 * 365,
+    });
+
+    // 7) Done — send them in.
     redirect("/dashboard");
 }

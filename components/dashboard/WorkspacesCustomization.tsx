@@ -14,6 +14,7 @@ const MAX_IMAGE_BYTES = 2 * 1024 * 1024; // 2 MB
 type WorkspaceCardData = {
   id: string;
   name: string;
+  type: string;
   logoUrl?: string | null;
   memberCount: number;
   role: string;
@@ -325,7 +326,7 @@ function WorkspaceBrandingCard({
           </p>
         )}
 
-        {isOwner && (
+        {isOwner && workspace.type !== "PERSONAL" && (
           <div className="mt-4 flex items-center justify-between border-t border-clay-edge pt-4">
             <p className="text-xs text-text-muted">
               Permanently removes this workspace, its projects and tasks.

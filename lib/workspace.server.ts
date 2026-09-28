@@ -69,6 +69,7 @@ export async function ensurePersonalWorkspace(userId: string) {
     return tx.workspace.create({
       data: {
         name: "Personal Workspace",
+        normalizedName: "personal workspace",
         type: "PERSONAL",
         ownerId: userId,
         members: {

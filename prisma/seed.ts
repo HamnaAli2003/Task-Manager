@@ -155,6 +155,7 @@ async function main() {
     create: {
       id: DEFAULT_WORKSPACE_ID,
       name: "Default Workspace",
+      normalizedName: "defaultworkspace",
       ownerId: owner.id,
     },
   });

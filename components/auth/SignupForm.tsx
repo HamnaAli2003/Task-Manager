@@ -237,12 +237,12 @@ export default function SignupForm({
                 {!checking && emailCheck && !emailCheck.available && (
                     <p className="mt-1.5 text-xs font-medium text-danger">
                         An account with this email already exists.{" "}
-                        <Link
+                        {/* <Link
                             href="/login"
                             className="font-semibold text-accent hover:text-accent-2"
                         >
-                            Sign in instead
-                        </Link>
+                            Sign in 
+                        </Link> */}
                     </p>
                 )}
             </div>

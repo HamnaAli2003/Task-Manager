@@ -5,7 +5,7 @@ import UserSync from "@/components/dashboard/UserSync";
 import { auth } from "@/auth";
 import { getAllTasks, getProjects } from "@/lib/data.server";
 import { getActiveWorkspace, getUserWorkspaces } from "@/lib/workspace.server";
-import { getUnreadNotificationCount } from "@/lib/notifications.server";
+import { getUnreadNotificationCount } from "@/lib/data.server";
 import { redirect } from "next/navigation";
 
 export default async function DashboardLayout({
@@ -26,11 +26,12 @@ export default async function DashboardLayout({
   // Only then list all workspaces for the switcher dropdown.
   const workspaces = await getUserWorkspaces(session.user.id);
 
-  // Everything below is scoped to the ACTIVE workspace only.
+  // Everything below is scoped to the ACTIVE workspace only — including
+  // the bell badge: it counts unread notifications of THIS workspace.
   const [projects, tasks, unreadCount] = await Promise.all([
     getProjects(activeWorkspace.id),
     getAllTasks(activeWorkspace.id),
-    getUnreadNotificationCount(session.user.id),
+    getUnreadNotificationCount(session.user.id, activeWorkspace.id),
   ]);
 
   return (

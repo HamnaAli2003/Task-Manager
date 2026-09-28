@@ -13,6 +13,7 @@ import {
 import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { Prisma } from "@prisma/client";
 
 const WORKSPACE_COOKIE = "pmp-workspace";
 
@@ -22,6 +23,11 @@ const workspaceNameSchema = z
   .trim()
   .min(3, "Workspace name must be at least 3 characters.")
   .max(60, "Workspace name must be 60 characters or fewer.");
+
+// The exact error shown when an owner tries to reuse a name they already
+// have (case-insensitive, space-insensitive — enforced in DB too).
+const DUPLICATE_NAME_ERROR =
+  "You already have a workspace with this name. Please choose another.";
 
 type WorkspaceActionResult = {
   ok: boolean;
@@ -77,18 +83,45 @@ export async function createWorkspaceAction(
 
   const user = await requireUser();
 
+  // Per-owner name uniqueness (case/space-insensitive). The DB unique
+  // index is the final guard; this pre-check gives a friendly error.
+  const normalizedName = parsed.data.toLowerCase();
+
+  const duplicate = await prisma.workspace.findFirst({
+    where: { ownerId: user.id, normalizedName },
+    select: { id: true },
+  });
+
+  if (duplicate) {
+    return { ok: false, error: DUPLICATE_NAME_ERROR };
+  }
+
   // Workspace + OWNER membership are created together. User-created
   // workspaces from the "+ New workspace" modal are always TEAM type.
-  const workspace = await prisma.workspace.create({
-    data: {
-      name: parsed.data,
-      type: "TEAM",
-      ownerId: user.id,
-      members: {
-        create: { userId: user.id, role: "OWNER" },
+  let workspace;
+  try {
+    workspace = await prisma.workspace.create({
+      data: {
+        name: parsed.data,
+        normalizedName,
+        type: "TEAM",
+        ownerId: user.id,
+        members: {
+          create: { userId: user.id, role: "OWNER" },
+        },
       },
-    },
-  });
+    });
+  } catch (error) {
+    // P2002 = unique constraint violation — two requests raced past the
+    // pre-check. The DB index rejected the duplicate; show the same error.
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === "P2002"
+    ) {
+      return { ok: false, error: DUPLICATE_NAME_ERROR };
+    }
+    throw error;
+  }
 
   // Switch to the freshly created workspace right away.
   const cookieStore = await cookies();
@@ -136,11 +169,39 @@ export async function renameWorkspaceAction(
     return { ok: false, error: "Only the workspace owner can rename it." };
   }
 
-  const updatedWorkspace = await prisma.workspace.update({
-    where: { id: workspace.id },
-    data: { name: parsed.data },
-    select: { id: true, name: true },
+  // Same uniqueness rule on rename; exclude the workspace being renamed
+  // so renaming it to its own (unchanged) name stays allowed.
+  const normalizedName = parsed.data.toLowerCase();
+
+  const duplicate = await prisma.workspace.findFirst({
+    where: {
+      ownerId: user.id,
+      normalizedName,
+      id: { not: workspace.id },
+    },
+    select: { id: true },
   });
+
+  if (duplicate) {
+    return { ok: false, error: DUPLICATE_NAME_ERROR };
+  }
+
+  let updatedWorkspace;
+  try {
+    updatedWorkspace = await prisma.workspace.update({
+      where: { id: workspace.id },
+      data: { name: parsed.data, normalizedName },
+      select: { id: true, name: true },
+    });
+  } catch (error) {
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === "P2002"
+    ) {
+      return { ok: false, error: DUPLICATE_NAME_ERROR };
+    }
+    throw error;
+  }
 
   // Tell every OTHER member the workspace was renamed (the owner knows).
   await emitWorkspaceRenamedEvent(workspace.id, user.id, updatedWorkspace.name);
@@ -166,11 +227,20 @@ export async function deleteWorkspaceAction(
 
   const workspace = await prisma.workspace.findFirst({
     where: { id: workspaceId, ownerId: user.id },
-    select: { id: true, name: true },
+    select: { id: true, name: true, type: true },
   });
 
   if (!workspace) {
     return { ok: false, error: "Only the workspace owner can delete it." };
+  }
+
+  // Personal workspaces are auto-created and permanent — they must never be
+  // deleted, even by the owner.
+  if (workspace.type === "PERSONAL") {
+    return {
+      ok: false,
+      error: "Your personal workspace cannot be deleted.",
+    };
   }
 
   // Eject other members BEFORE the row is deleted (the notification keeps

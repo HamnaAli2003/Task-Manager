@@ -72,6 +72,8 @@ model VerificationToken {
 model Workspace {
   id        String        @id @default(cuid())
   name      String
+  // lower(trim(name)) — internal field for per-owner uniqueness check
+  normalizedName String
   logoUrl   String?
   type      WorkspaceType @default(TEAM)
   ownerId   String
@@ -86,7 +88,11 @@ model Workspace {
 
   // Invites (M3)
   invites Invite[]
+
+  // One owner cannot have two workspaces with the same name (case/space-insensitive)
+  @@unique([ownerId, normalizedName])
 }
+
 
 model WorkspaceMember {
   id          String        @id @default(cuid())

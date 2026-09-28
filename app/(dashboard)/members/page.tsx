@@ -52,12 +52,22 @@ export default async function MembersPage() {
           <h2 className="mb-1 text-base font-bold text-text">
             Invite someone
           </h2>
-          <p className="mb-4 text-xs text-text-muted">
-            Generates a one-time link (valid 7 days). Share it on WhatsApp or
-            email — no email sending required.
-          </p>
 
-          <InviteForm workspaceId={workspace.id} />
+          {workspace.type === "PERSONAL" ? (
+            <p className="rounded-2xl border border-clay-edge bg-field-bg p-4 text-sm text-text-muted">
+              Personal spaces are private. Create a team workspace to invite
+              people.
+            </p>
+          ) : (
+            <>
+              <p className="mb-4 text-xs text-text-muted">
+                Generates a one-time link (valid 7 days). Share it on WhatsApp
+                or email — no email sending required.
+              </p>
+
+              <InviteForm workspaceId={workspace.id} />
+            </>
+          )}
         </section>
 
         <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-2">

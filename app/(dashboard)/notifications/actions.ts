@@ -1,11 +1,12 @@
 "use server";
 
-import { requireUser } from "@/lib/workspace.server";
+import { requireUser, getActiveWorkspace } from "@/lib/workspace.server";
 import {
+  deleteNotification,
   getUnreadNotificationCount,
-  markAllNotificationsRead,
   markNotificationRead,
-} from "@/lib/notifications.server";
+  markAllNotificationsRead,
+} from "@/lib/data.server";
 import { revalidatePath } from "next/cache";
 
 export type NotificationActionResult = { ok: boolean; error?: string };
@@ -14,9 +15,10 @@ export async function markNotificationReadAction(
   notificationId: string
 ): Promise<NotificationActionResult> {
   const user = await requireUser();
+  const workspace = await getActiveWorkspace();
 
-  // Ownership is enforced inside markNotificationRead (userId in WHERE).
-  await markNotificationRead(user.id, notificationId);
+  // Recipient and active workspace are both enforced by the query.
+  await markNotificationRead(user.id, workspace.id, notificationId);
 
   revalidatePath("/", "layout");
   return { ok: true };
@@ -24,16 +26,39 @@ export async function markNotificationReadAction(
 
 export async function markAllNotificationsReadAction(): Promise<NotificationActionResult> {
   const user = await requireUser();
+  const workspace = await getActiveWorkspace();
 
-  await markAllNotificationsRead(user.id);
+  // Scoped to the ACTIVE workspace — other workspaces stay untouched.
+  await markAllNotificationsRead(user.id, workspace.id);
 
   revalidatePath("/", "layout");
   return { ok: true };
 }
 
-/** Lightweight unread count for the bell badge polling. */
-export async function getUnreadNotificationCountAction(): Promise<number> {
+/**
+ * Deletes ONE notification row. Ownership is enforced inside
+ * deleteNotification (userId in WHERE) — a user can never delete
+ * another member's copy.
+ */
+export async function deleteNotificationAction(
+  notificationId: string
+): Promise<NotificationActionResult> {
   const user = await requireUser();
 
-  return getUnreadNotificationCount(user.id);
+  const workspace = await getActiveWorkspace();
+  const deleted = await deleteNotification(user.id, workspace.id, notificationId);
+  if (!deleted) {
+    return { ok: false, error: "Notification not found." };
+  }
+
+  revalidatePath("/", "layout");
+  return { ok: true };
+}
+
+/** Lightweight unread count for the bell badge polling (active workspace). */
+export async function getUnreadNotificationCountAction(): Promise<number> {
+  const user = await requireUser();
+  const workspace = await getActiveWorkspace();
+
+  return getUnreadNotificationCount(user.id, workspace.id);
 }

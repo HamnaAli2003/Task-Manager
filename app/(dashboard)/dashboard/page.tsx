@@ -1,4 +1,3 @@
-import Link from "next/link";
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
 import DashboardStats from "@/components/dashboard/DashboardStats";
 import DueTasksClient from "@/components/dashboard/DueTasksClient";
@@ -6,16 +5,36 @@ import LiveActivity from "@/components/dashboard/LiveActivity";
 import PriorityMix from "@/components/dashboard/PriorityMix";
 import ProjectsGrid from "@/components/dashboard/ProjectsGrid";
 import { getProjects } from "@/lib/data.server";
-import { getActiveWorkspace } from "@/lib/workspace.server";
+import { getActiveWorkspace, requireUser } from "@/lib/workspace.server";
+import { prisma } from "@/lib/prisma";
 
 export default async function DashboardPage() {
+  const user = await requireUser();
   const workspace = await getActiveWorkspace();
-  const projects = await getProjects(workspace.id);
+
+  const [projects, membership] = await Promise.all([
+    getProjects(workspace.id),
+    prisma.workspaceMember.findUnique({
+      where: {
+        workspaceId_userId: { workspaceId: workspace.id, userId: user.id },
+      },
+      select: { role: true },
+    }),
+  ]);
+
+  // Owner-only invite rights (server-fetched — the client can't fake this;
+  // the action re-verifies anyway).
+  const canInvite =
+    workspace.type === "TEAM" && membership?.role === "OWNER";
 
   return (
     <main className="min-h-screen">
       <div className="mx-auto max-w-7xl px-5 py-7 sm:px-8 lg:py-9">
-        <DashboardHeader />
+        <DashboardHeader
+          workspaceId={workspace.id}
+          workspaceType={workspace.type}
+          canInvite={canInvite}
+        />
 
         <DashboardStats />
 
@@ -31,17 +50,6 @@ export default async function DashboardPage() {
                   Projects currently receiving activity.
                 </p>
               </div>
-
-              <Link
-                href="/projects"
-                className="
-                  text-xs font-semibold
-                  text-accent
-                  transition hover:text-accent-2
-                "
-              >
-                View all →
-              </Link>
             </div>
 
             <div className="hide-scrollbar -mr-3 max-h-120 overflow-y-auto pr-3 overscroll-contain">

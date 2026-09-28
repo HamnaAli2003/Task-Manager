@@ -71,6 +71,7 @@ export default async function ProfilePage({
           workspaces={workspaces.map((workspace) => ({
             id: workspace.id,
             name: workspace.name,
+            type: workspace.type,
             logoUrl: workspace.logoUrl,
             memberCount: workspace.memberCount,
             role: workspace.role ?? "MEMBER",

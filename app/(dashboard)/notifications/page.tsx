@@ -1,10 +1,11 @@
-import { requireUser } from "@/lib/workspace.server";
-import { listNotifications } from "@/lib/notifications.server";
+import { requireUser, getActiveWorkspace } from "@/lib/workspace.server";
+import { listNotifications } from "@/lib/data.server";
 import NotificationList from "./NotificationList";
 
 export default async function NotificationsPage() {
   const user = await requireUser();
-  const notifications = await listNotifications(user.id);
+  const workspace = await getActiveWorkspace();
+  const notifications = await listNotifications(user.id, workspace.id);
 
   return (
     <main className="min-h-screen">
@@ -19,7 +20,8 @@ export default async function NotificationsPage() {
           </h1>
 
           <p className="mt-2 text-sm text-text-secondary">
-            Updates from your workspaces.
+            Updates from <span className="font-semibold">{workspace.name}</span>.
+            Switch workspaces to see their notifications.
           </p>
         </div>
 

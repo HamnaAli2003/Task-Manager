@@ -3,8 +3,11 @@
 // Dropdown to switch between the user's workspaces + a button to
 // create a new one. Calls server actions inside a transition so the
 // UI can show a pending state while the cookie + revalidation happen.
+// Also listens for "pmp:open-create-workspace" so the topbar upsell
+// (Invite clicked while a PERSONAL workspace is active) can open the
+// create-workspace modal from anywhere in the layout.
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import {
   createWorkspaceAction,
   renameWorkspaceAction,
@@ -22,12 +25,12 @@ type WorkspaceSwitcherProps = {
   selectOnly?: boolean;
 };
 
-// The switcher always shows the fixed " Personal" label for PERSONAL
-// workspaces (ignoring the stored name); TEAM workspaces show " {name}".
+// The switcher always shows the fixed "🏠 Personal" label for PERSONAL
+// workspaces (ignoring the stored name); TEAM workspaces show "👥 {name}".
 export function workspaceLabel(workspace: WorkspaceOption): string {
   return workspace.type === "PERSONAL"
-    ? " Personal"
-    : ` ${workspace.name}`;
+    ? "🏠 Personal"
+    : `👥 ${workspace.name}`;
 }
 
 export default function WorkspaceSwitcher({
@@ -41,9 +44,26 @@ export default function WorkspaceSwitcher({
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isRenameModalOpen, setIsRenameModalOpen] = useState(false);
   const [workspaceName, setWorkspaceName] = useState("");
+  const [createError, setCreateError] = useState("");
   const activeWorkspace = workspaces.find(
     (workspace) => workspace.id === activeWorkspaceId,
   );
+
+  // Opens the create-workspace modal when the topbar upsell CTA fires
+  // (Invite clicked while a PERSONAL workspace is active).
+  // Only the compact (sidebar) instance listens — the dropdown instance
+  // also mounts one, so without the gate both would open their own copy.
+  useEffect(() => {
+    if (!compact) return;
+    const openCreate = () => {
+      setWorkspaceName("");
+      setCreateError("");
+      setIsCreateModalOpen(true);
+    };
+    window.addEventListener("pmp:open-create-workspace", openCreate);
+    return () =>
+      window.removeEventListener("pmp:open-create-workspace", openCreate);
+  }, [compact]);
 
   function handleWorkspaceChange(workspaceId: string) {
     startTransition(async () => {
@@ -61,7 +81,13 @@ export default function WorkspaceSwitcher({
 
   function handleCreateWorkspace() {
     setWorkspaceName("");
+    setCreateError("");
     setIsCreateModalOpen(true);
+  }
+
+  function handleCreateWorkspaceNameChange(name: string) {
+    setWorkspaceName(name);
+    setCreateError("");
   }
 
   function handleRenameWorkspace() {
@@ -74,16 +100,16 @@ export default function WorkspaceSwitcher({
 
     if (!name) return;
 
-    setIsCreateModalOpen(false);
-
     startTransition(async () => {
       const result = await createWorkspaceAction(name);
 
       if (!result.ok) {
-        window.alert(result.error ?? "Could not create workspace.");
+        setCreateError(result.error ?? "Could not create workspace.");
         return;
       }
 
+      setCreateError("");
+      setIsCreateModalOpen(false);
       router.refresh();
     });
   }
@@ -139,7 +165,8 @@ export default function WorkspaceSwitcher({
           open={isCreateModalOpen}
           name={workspaceName}
           pending={isPending}
-          onNameChange={setWorkspaceName}
+          error={createError}
+          onNameChange={handleCreateWorkspaceNameChange}
           onCancel={() => setIsCreateModalOpen(false)}
           onSubmit={handleCreateWorkspaceSubmit}
         />
@@ -202,7 +229,8 @@ export default function WorkspaceSwitcher({
         open={isCreateModalOpen}
         name={workspaceName}
         pending={isPending}
-        onNameChange={setWorkspaceName}
+        error={createError}
+        onNameChange={handleCreateWorkspaceNameChange}
         onCancel={() => setIsCreateModalOpen(false)}
         onSubmit={handleCreateWorkspaceSubmit}
       />
@@ -220,4 +248,3 @@ export default function WorkspaceSwitcher({
     </div>
   );
 }
-
