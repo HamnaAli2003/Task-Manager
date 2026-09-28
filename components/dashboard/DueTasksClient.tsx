@@ -2,22 +2,13 @@
 
 import { useDataStore } from "@/lib/dataStore";
 import {
-  PRIORITY_ACCENT,
-  PRIORITY_BADGE,
   PRIORITY_LABELS,
   STATUS_BADGE,
   STATUS_DOT,
   STATUS_LABELS,
-  type TaskPriority,
 } from "@/lib/taskOptions";
+import { TEAM_MEMBERS_BY_ID } from "@/lib/data";
 import DueTaskDoneButton from "./DueTaskDoneButton";
-
-const CARD_TINT: Record<TaskPriority, string> = {
-  low: "bg-priority-low/10",
-  medium: "bg-priority-medium/10",
-  high: "bg-priority-high/10",
-  urgent: "bg-priority-urgent/10",
-};
 
 function isoDate(daysFromNow: number): string {
   const date = new Date();
@@ -83,61 +74,68 @@ export default function DueTasksClient() {
           No tasks are due in the next 7 days.
         </p>
       ) : (
-        <div className="hide-scrollbar max-h-96 space-y-3 overflow-y-auto pr-0.5">
-          {upcomingTasks.map((task) => (
-            <article
-              key={task.id}
-              className={`rounded-xl border border-border-light border-l-4 ${PRIORITY_ACCENT[task.priority]} ${CARD_TINT[task.priority]} p-4 transition-transform duration-200 hover:-translate-y-0.5`}
-            >
-              <div className="flex items-start gap-3">
-                <span
-                  className={`mt-1.5 size-2 shrink-0 rounded-full ${STATUS_DOT[task.status]}`}
-                />
+        <div className="hide-scrollbar max-h-96 overflow-auto">
+          <table className="w-full min-w-145 border-collapse text-left text-xs">
+            <thead className="sticky top-0 bg-glass-bg text-[10px] font-medium text-text-muted">
+              <tr>
+                <th className="px-3 py-2 font-medium">Task</th>
+                <th className="px-3 py-2 font-medium">Deadline</th>
+                <th className="px-3 py-2 font-medium">Assigned</th>
+                <th className="px-3 py-2 font-medium">Status</th>
+                <th className="px-3 py-2 font-medium"><span className="sr-only">Action</span></th>
+              </tr>
+            </thead>
+            <tbody>
+              {upcomingTasks.map((task) => {
+                const assignee = task.assigneeId
+                  ? TEAM_MEMBERS_BY_ID.get(task.assigneeId)
+                  : undefined;
 
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <h3 className="text-sm font-semibold text-text">
-                      {task.title}
-                    </h3>
-
-                    <div className="flex shrink-0 flex-wrap items-center gap-2">
-                      <span
-                        className={`rounded-full px-2.5 py-1 text-[10px] font-semibold ${STATUS_BADGE[task.status]}`}
-                      >
+                return (
+                  <tr key={task.id} className="border-t border-border-light">
+                    <td className="max-w-56 px-3 py-3">
+                      <div className="flex items-center gap-2.5">
+                        <span
+                          className={`size-2 shrink-0 rounded-full ${STATUS_DOT[task.status]}`}
+                        />
+                        <div className="min-w-0">
+                          <p className="truncate font-semibold text-text">
+                            {task.title}
+                          </p>
+                          <p className="mt-0.5 truncate text-[10px] text-text-muted">
+                            {projectNames.get(task.projectId)} · {PRIORITY_LABELS[task.priority]} priority
+                          </p>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="whitespace-nowrap px-3 py-3 text-text-secondary">
+                      {formatDueDate(task.due)}
+                    </td>
+                    <td className="px-3 py-3">
+                      {assignee ? (
+                        <span className="flex items-center gap-2 whitespace-nowrap text-text-secondary">
+                          <span className={`flex size-6 items-center justify-center rounded-full ${assignee.color} text-[9px] font-bold text-white`}>
+                            {assignee.initials}
+                          </span>
+                          {assignee.name.split(" ")[0]}
+                        </span>
+                      ) : (
+                        <span className="text-text-muted">Unassigned</span>
+                      )}
+                    </td>
+                    <td className="px-3 py-3">
+                      <span className={`whitespace-nowrap rounded-full px-2 py-1 text-[10px] font-semibold ${STATUS_BADGE[task.status]}`}>
                         {STATUS_LABELS[task.status]}
                       </span>
-
-                      <span
-                        className={`rounded-full px-2.5 py-1 text-[10px] font-semibold ${PRIORITY_BADGE[task.priority]}`}
-                      >
-                        {PRIORITY_LABELS[task.priority]}
-                      </span>
-                    </div>
-                  </div>
-
-                  <p className="mt-1 text-xs leading-5 text-text-secondary">
-                    {task.description}
-                  </p>
-
-                  <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
-                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-text-muted">
-                      <span className="font-medium text-text-secondary">
-                        {projectNames.get(task.projectId)}
-                      </span>
-
-                      <span aria-hidden="true">•</span>
-
-                      <span>Due {formatDueDate(task.due)}</span>
-                    </div>
-
-                    <DueTaskDoneButton
-                      action={() => markTaskDone(task.id)}
-                    />
-                  </div>
-                </div>
-              </div>
-            </article>
-          ))}
+                    </td>
+                    <td className="px-3 py-3 text-right">
+                      <DueTaskDoneButton action={() => markTaskDone(task.id)} />
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       )}
     </section>

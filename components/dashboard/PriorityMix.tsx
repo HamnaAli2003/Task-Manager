@@ -33,9 +33,14 @@ export default function PriorityMix() {
   }));
 
   const total = rows.reduce((sum, row) => sum + row.count, 0);
-  const safeTotal = total || 1;
   const urgentCount =
     rows.find((row) => row.priority === "urgent")?.count ?? 0;
+  let cumulativePercent = 0;
+  const donutStops = rows.map((row) => {
+    const start = cumulativePercent;
+    cumulativePercent += total ? (row.count / total) * 100 : 0;
+    return `var(--priority-${row.priority}) ${start}% ${cumulativePercent}%`;
+  });
 
   return (
     <section
@@ -58,54 +63,41 @@ export default function PriorityMix() {
         </p>
       </div>
 
-      <div className="space-y-3">
-        {rows.map((row) => (
-          <div
-            key={row.priority}
-            className="flex items-center gap-3"
-          >
-            <span className={`size-2.5 rounded-full ${row.dot}`} />
-
-            <span className="text-xs font-medium text-text-secondary">
-              {row.label}
-            </span>
-
-            <span className="ml-auto">{row.count}</span>
+      <div className="flex flex-col items-center gap-5 sm:flex-row sm:items-center sm:justify-center">
+        <div
+          className="relative size-36 shrink-0 rounded-full"
+          style={{
+            background: total
+              ? `conic-gradient(${donutStops.join(", ")})`
+              : "var(--surface-elevated)",
+          }}
+          role="img"
+          aria-label={`${total} tasks grouped by priority`}
+        >
+          <div className="absolute inset-5 flex flex-col items-center justify-center rounded-full bg-glass-bg text-center">
+            <span className="text-2xl font-bold text-text">{total}</span>
+            <span className="text-[10px] text-text-muted">tasks</span>
           </div>
-        ))}
-      </div>
-
-      {/* Proportional stacked bar */}
-      <div className="mt-4">
-        <div className="flex h-3 w-full overflow-hidden rounded-full bg-surface-elevated">
-          {rows.map((row) => (
-            <div
-              key={row.priority}
-              className={row.bar}
-              style={{ width: `${(row.count / safeTotal) * 100}%` }}
-            />
-          ))}
         </div>
 
-        <div className="mt-3 flex items-center justify-between text-[9px] font-medium text-text-muted">
+        <div className="grid w-full grid-cols-2 gap-x-4 gap-y-3 sm:max-w-44 sm:grid-cols-1">
           {rows.map((row) => (
-            <span key={row.priority} className="flex items-center gap-1.5">
-              <span className={`size-1.5 rounded-full ${row.dot}`} />
-              {row.label} {Math.round((row.count / safeTotal) * 100)}%
-            </span>
+            <div key={row.priority} className="flex items-center gap-2 text-xs">
+              <span className={`size-2 shrink-0 rounded-full ${row.dot}`} />
+              <span className="text-text-secondary">{row.label}</span>
+              <span className="ml-auto font-medium text-text">
+                {row.count}
+              </span>
+            </div>
           ))}
         </div>
       </div>
 
-      <div className="mt-4 rounded-2xl bg-accent-soft p-4">
-        <p className="text-xs font-bold text-accent">
-          {total} priority tasks
-        </p>
-
-        <p className="mt-1 text-[10px] leading-4 text-text-muted">
-          {urgentCount} {urgentCount === 1 ? "task" : "tasks"} currently need
-          urgent attention.
-        </p>
+      <div className="mt-4 flex items-center justify-between border-t border-glass-border pt-3 text-[10px] text-text-muted">
+        <span>{total} priority tasks</span>
+        <span>
+          {urgentCount} {urgentCount === 1 ? "task" : "tasks"} urgent
+        </span>
       </div>
     </section>
   );

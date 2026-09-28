@@ -9,10 +9,12 @@ export default function DashboardHeader({
   workspaceId,
   workspaceType,
   canInvite,
+  hasProjects,
 }: {
   workspaceId: string;
   workspaceType: string;
   canInvite: boolean;
+  hasProjects: boolean;
 }) {
   const user = useUser();
   const firstName = (user.name.split(" ")[0] || "there").trim();
@@ -30,7 +32,9 @@ export default function DashboardHeader({
         </h1>
 
         <p className="mt-1 text-sm text-text-secondary">
-          Here&apos;s what&apos;s moving across your workspace.
+          {hasProjects
+            ? "Here's what's moving across your workspace."
+            : "Your workspace is ready for its first project."}
         </p>
       </div>
 
