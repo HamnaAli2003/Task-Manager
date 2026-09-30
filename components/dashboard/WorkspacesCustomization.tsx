@@ -313,7 +313,9 @@ function WorkspaceBrandingCard({
                 shrink-0 rounded-xl
                 border border-clay-edge bg-clay-bg px-3 py-2
                 text-xs font-bold text-accent shadow-(--clay-drop)
-                transition hover:-translate-y-0.5 hover:bg-accent hover:text-white
+                transition hover:-translate-y-0.5 hover:bg-accent hover:text-black
+                dark:hover:bg-accent dark:hover:text-white
+                focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0
                 disabled:cursor-wait disabled:opacity-60
               "
             >

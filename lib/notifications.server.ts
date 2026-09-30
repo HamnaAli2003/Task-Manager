@@ -1,5 +1,4 @@
 // Server-side notification helpers.
-//
 // One Notification row per recipient per event. `userId` is ALWAYS the recipient.
 // All helpers require / return a userId — the caller (a page or server action)
 // is responsible for binding it to the authenticated session user.
@@ -34,6 +33,11 @@ export async function createNotification(
     },
     include: { actor: { select: { name: true, image: true } } },
   });
+}
+
+/** Back-compat alias used by older task/activity actions. */
+export async function emitNotification(input: NotificationInput) {
+  return createNotification(input);
 }
 
 /** The user's notifications, newest first (the notifications page feed). */

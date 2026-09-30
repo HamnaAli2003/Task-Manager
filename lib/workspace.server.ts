@@ -18,6 +18,11 @@ export async function getCurrentUser() {
   return prisma.user.findUnique({ where: { id: userId } });
 }
 
+/** Back-compat alias used by older server actions. */
+export async function getUser() {
+  return getCurrentUser();
+}
+
 /** Same as getCurrentUser but redirects to /login when there is no session. */
 export async function requireUser() {
   const user = await getCurrentUser();

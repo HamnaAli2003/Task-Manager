@@ -7,13 +7,14 @@ import ProjectsGrid from "@/components/dashboard/ProjectsGrid";
 import Link from "next/link";
 import { getProjects } from "@/lib/data.server";
 import { getActiveWorkspace, requireUser } from "@/lib/workspace.server";
+import { listWorkspaceActivity } from "@/lib/activity.server";
 import { prisma } from "@/lib/prisma";
 
 export default async function DashboardPage() {
   const user = await requireUser();
   const workspace = await getActiveWorkspace();
 
-  const [projects, membership] = await Promise.all([
+  const [projects, membership, activityRows] = await Promise.all([
     getProjects(workspace.id),
     prisma.workspaceMember.findUnique({
       where: {
@@ -21,7 +22,25 @@ export default async function DashboardPage() {
       },
       select: { role: true },
     }),
+    listWorkspaceActivity(workspace.id, 20),
   ]);
+
+  // Serialize once — both LiveActivity instances share this snapshot.
+  const initialActivities = activityRows.map(
+    (event: {
+      id: string;
+      type: string;
+      message: string;
+      actorName: string | null;
+      createdAt: Date;
+    }) => ({
+    id: event.id,
+    type: event.type,
+    message: event.message,
+    actorName: event.actorName,
+    createdAt: event.createdAt.toISOString(),
+    }),
+  );
 
   // Owner-only invite rights (server-fetched — the client can't fake this;
   // the action re-verifies anyway).
@@ -65,7 +84,11 @@ export default async function DashboardPage() {
               </Link>
             </section>
 
-            <LiveActivity />
+            {/* key={workspace.id} remounts on switch — fresh data, fresh poll */}
+            <LiveActivity
+              key={workspace.id}
+              initialActivities={initialActivities}
+            />
           </section>
         ) : (
           <>
@@ -98,7 +121,10 @@ export default async function DashboardPage() {
             <section className="mt-6 grid grid-cols-1 items-start gap-6 xl:grid-cols-[1.65fr_0.75fr]">
               <DueTasksClient />
 
-              <LiveActivity />
+              <LiveActivity
+                key={workspace.id}
+                initialActivities={initialActivities}
+              />
             </section>
           </>
         )}

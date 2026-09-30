@@ -1,43 +1,56 @@
-const activities = [
-    {
-        id: "1",
-        user: "ali",
-        initials: "A",
-        color: "bg-accent",
-        action: "completed",
-        target: "Design system tokens",
-        time: "10 minutes ago",
-    },
-    {
-        id: "2",
-        user: "ali",
-        initials: "A",
-        color: "bg-info",
-        action: "updated",
-        target: "Mobile Banking App",
-        time: "35 minutes ago",
-    },
-    {
-        id: "3",
-        user: "ali",
-        initials: "A",
-        color: "bg-success",
-        action: "created",
-        target: "CSV bulk export task",
-        time: "1 hour ago",
-    },
-    {
-        id: "4",
-        user: "ali",
-        initials: "A",
-        color: "bg-warning",
-        action: "moved",
-        target: "Login UI to In Progress",
-        time: "2 hours ago",
-    },
-];
+// Activity page — REAL workspace-scoped activity from ActivityEvent.
+// Server component: everything filters by the ACTIVE workspace.
+import { requireUser, getActiveWorkspace } from "@/lib/workspace.server";
+import { listWorkspaceActivity } from "@/lib/activity.server";
 
-export default function ActivityPage() {
+function initialsOf(name: string | null | undefined): string {
+    return (name ?? "?")
+        .split(" ")
+        .filter(Boolean)
+        .map((part) => part[0])
+        .join("")
+        .slice(0, 2)
+        .toUpperCase();
+}
+
+function timeAgo(date: Date): string {
+    const seconds = Math.floor((Date.now() - date.getTime()) / 1000);
+    if (seconds < 60) return "just now";
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60) return `${minutes} minute${minutes === 1 ? "" : "s"} ago`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours} hour${hours === 1 ? "" : "s"} ago`;
+    const days = Math.floor(hours / 24);
+    return `${days} day${days === 1 ? "" : "s"} ago`;
+}
+
+const BADGE: Record<string, string> = {
+    INVITE_SENT: "bg-info/15 text-info",
+    MEMBER_JOINED: "bg-success/15 text-success",
+    MEMBER_REMOVED: "bg-danger/15 text-danger",
+    TASK_CREATED: "bg-accent/15 text-accent",
+    TASK_UPDATED: "bg-info/15 text-info",
+    TASK_STATUS_CHANGED: "bg-warning/15 text-warning",
+    TASK_ASSIGNED: "bg-accent/15 text-accent",
+    TASK_COMPLETED: "bg-success/15 text-success",
+};
+
+const LABEL: Record<string, string> = {
+    INVITE_SENT: "Invite",
+    MEMBER_JOINED: "Joined",
+    MEMBER_REMOVED: "Removed",
+    TASK_CREATED: "Created",
+    TASK_UPDATED: "Updated",
+    TASK_STATUS_CHANGED: "Status",
+    TASK_ASSIGNED: "Assigned",
+    TASK_COMPLETED: "Completed",
+};
+
+export default async function ActivityPage() {
+    const user = await requireUser();
+    const workspace = await getActiveWorkspace();
+    const activities = await listWorkspaceActivity(workspace.id);
+
     return (
         <main className="min-h-screen">
             <div className="mx-auto max-w-7xl px-5 py-7 sm:px-8 lg:py-9">
@@ -51,41 +64,51 @@ export default function ActivityPage() {
                     </h1>
 
                     <p className="mt-2 text-sm text-text-secondary">
-                        See what has been happening across your workspace.
+                        What has been happening in{" "}
+                        <span className="font-semibold">{workspace.name}</span>.
                     </p>
                 </div>
 
                 <section className="rounded-2xl border border-glass-border bg-glass-bg p-5 shadow-lg backdrop-blur-xl">
-                    <div className="space-y-4">
-                        {activities.map((activity) => (
-                            <article
-                                key={activity.id}
-                                className="flex items-start gap-4 rounded-xl border border-border-light bg-surface-elevated p-4"
-                            >
-                                <div
-                                    className={`flex size-9 shrink-0 items-center justify-center rounded-full ${activity.color} text-xs font-bold text-white`}
-                                >
-                                    {activity.initials}
-                                </div>
+                    {activities.length === 0 ? (
+                        <p className="rounded-2xl border border-dashed border-clay-edge p-6 text-center text-sm text-text-muted">
+                            No activity yet in this workspace.
+                        </p>
+                    ) : (
+                        <div className="space-y-4">
+                            {activities.map(
+                                (activity: Awaited<ReturnType<typeof listWorkspaceActivity>>[number]) => (
+                                    <article
+                                        key={activity.id}
+                                        className="flex items-start gap-4 rounded-xl border border-border-light bg-surface-elevated p-4"
+                                    >
+                                        <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-accent text-xs font-bold text-white">
+                                            {initialsOf(activity.actorName)}
+                                        </div>
 
-                                <div className="min-w-0 flex-1">
-                                    <p className="text-sm text-text">
-                                        <span className="font-semibold">
-                                            {activity.user}
-                                        </span>{" "}
-                                        {activity.action}{" "}
-                                        <span className="font-semibold text-accent">
-                                            {activity.target}
-                                        </span>
-                                    </p>
+                                        <div className="min-w-0 flex-1">
+                                            <p className="text-sm text-text">{activity.message}</p>
 
-                                    <p className="mt-1 text-xs text-text-muted">
-                                        {activity.time}
-                                    </p>
-                                </div>
-                            </article>
-                        ))}
-                    </div>
+                                            <div className="mt-1 flex items-center gap-2">
+                                                <span
+                                                    className={`
+                          rounded-md px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider
+                          ${BADGE[activity.type] ?? "bg-text-muted/10 text-text-muted"}
+                        `}
+                                                >
+                                                    {LABEL[activity.type] ?? activity.type}
+                                                </span>
+
+                                                <p className="text-xs text-text-muted">
+                                                    {timeAgo(activity.createdAt)}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </article>
+                                ),
+                            )}
+                        </div>
+                    )}
                 </section>
             </div>
         </main>

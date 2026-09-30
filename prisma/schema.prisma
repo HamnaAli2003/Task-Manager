@@ -88,7 +88,8 @@ model Workspace {
 
   // Invites (M3)
   invites Invite[]
-
+  // Member/project activity history (M3)
+  activityEvents ActivityEvent[]
   // One owner cannot have two workspaces with the same name (case/space-insensitive)
   @@unique([ownerId, normalizedName])
 }
@@ -155,6 +156,7 @@ enum NotificationType {
   INVITE_ACCEPTED
   MEMBER_JOINED
   TASK_ASSIGNED   // future: needs real member assignment
+  TASK_STATUS_CHANGED  // task status change notification
   CHAT_MESSAGE    // future: chat milestone
   WORKSPACE_RENAMED  // owner renamed the workspace
   WORKSPACE_DELETED  // owner deleted the workspace
@@ -196,4 +198,22 @@ model Invite {
   createdBy User      @relation("InviteCreator", fields: [createdById], references: [id])
 
   @@index([workspaceId])
+}
+// ---- Workspace activity history (M3) ----
+// Workspace-scope ka permanent log: kis ne kya kiya. Snapshot fields
+// (actorName/targetName) isliye hain ke user delete ho jaye to bhi
+// history readable rahe. Workspace delete hone pe history bhi jati hai.
+model ActivityEvent {
+  id          String   @id @default(cuid())
+  workspaceId String
+  category    String   // "MEMBER" | "PROJECT" | "TASK"
+  type        String   // INVITE_SENT / MEMBER_JOINED / MEMBER_REMOVED / ...
+  actorName   String?  // snapshot — kis ne kiya
+  targetName  String?  // snapshot — kisko affect kiya
+  message     String
+  createdAt   DateTime @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, category, createdAt])
 }

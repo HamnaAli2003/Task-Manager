@@ -45,6 +45,7 @@ export default function WorkspaceSwitcher({
   const [isRenameModalOpen, setIsRenameModalOpen] = useState(false);
   const [workspaceName, setWorkspaceName] = useState("");
   const [createError, setCreateError] = useState("");
+  const [workspaceError, setWorkspaceError] = useState<string | null>(null);
   const activeWorkspace = workspaces.find(
     (workspace) => workspace.id === activeWorkspaceId,
   );
@@ -70,7 +71,7 @@ export default function WorkspaceSwitcher({
       const result = await switchWorkspaceAction(workspaceId);
 
       if (!result.ok) {
-        window.alert(result.error ?? "Could not switch workspace.");
+        setWorkspaceError(result.error ?? "Could not switch workspace.");
         return;
       }
 
@@ -125,7 +126,7 @@ export default function WorkspaceSwitcher({
       const result = await renameWorkspaceAction(activeWorkspace.id, name);
 
       if (!result.ok) {
-        window.alert(result.error ?? "Could not rename workspace.");
+        setWorkspaceError(result.error ?? "Could not rename workspace.");
         return;
       }
 
@@ -181,6 +182,45 @@ export default function WorkspaceSwitcher({
           onCancel={() => setIsRenameModalOpen(false)}
           onSubmit={handleRenameWorkspaceSubmit}
         />
+
+        {workspaceError && (
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="workspace-error-title"
+            className="fixed inset-0 z-999 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm"
+          >
+            <button
+              type="button"
+              aria-label="Close error dialog"
+              onClick={() => setWorkspaceError(null)}
+              className="absolute inset-0 cursor-default"
+            />
+
+            <div className="relative w-full max-w-xl rounded-[28px] border border-white/10 bg-[#0d1117]/95 p-8 shadow-2xl shadow-black/30">
+              <h2
+                id="workspace-error-title"
+                className="text-3xl font-bold text-white"
+              >
+                {activeWorkspace ? "Workspace update" : "Workspace access"}
+              </h2>
+
+              <p className="mt-5 text-xl leading-8 text-slate-200">
+                {workspaceError}
+              </p>
+
+              <div className="mt-7 flex justify-center">
+                <button
+                  type="button"
+                  onClick={() => setWorkspaceError(null)}
+                  className="rounded-full border border-[#9fe9d9] bg-[#9fe9d9] px-12 py-3 text-2xl font-bold text-slate-900 shadow-[0_0_0_2px_rgba(159,233,217,0.25)] transition hover:brightness-95"
+                >
+                  OK
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </>
     );
   }
@@ -245,6 +285,45 @@ export default function WorkspaceSwitcher({
         onCancel={() => setIsRenameModalOpen(false)}
         onSubmit={handleRenameWorkspaceSubmit}
       />
+
+      {workspaceError && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="workspace-error-title"
+          className="fixed inset-0 z-999 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm"
+        >
+          <button
+            type="button"
+            aria-label="Close error dialog"
+            onClick={() => setWorkspaceError(null)}
+            className="absolute inset-0 cursor-default"
+          />
+
+          <div className="relative w-full max-w-xl rounded-[28px] border border-white/10 bg-[#0d1117]/95 p-8 shadow-2xl shadow-black/30">
+            <h2
+              id="workspace-error-title"
+              className="text-3xl font-bold text-white"
+            >
+              {activeWorkspace ? "Workspace update" : "Workspace access"}
+            </h2>
+
+            <p className="mt-5 text-xl leading-8 text-slate-200">
+              {workspaceError}
+            </p>
+
+            <div className="mt-7 flex justify-center">
+              <button
+                type="button"
+                onClick={() => setWorkspaceError(null)}
+                className="rounded-full border border-[#9fe9d9] bg-[#9fe9d9] px-12 py-3 text-2xl font-bold text-slate-900 shadow-[0_0_0_2px_rgba(159,233,217,0.25)] transition hover:brightness-95"
+              >
+                OK
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

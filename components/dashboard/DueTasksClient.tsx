@@ -114,8 +114,20 @@ export default function DueTasksClient() {
                     <td className="px-3 py-3">
                       {assignee ? (
                         <span className="flex items-center gap-2 whitespace-nowrap text-text-secondary">
-                          <span className={`flex size-6 items-center justify-center rounded-full ${assignee.color} text-[9px] font-bold text-white`}>
-                            {assignee.initials}
+                          <span
+                            title={assignee.name}
+                            className={`flex size-7 shrink-0 items-center justify-center overflow-hidden rounded-full ${assignee.color} text-[9px] font-bold text-white`}
+                          >
+                            {assignee.avatarUrl ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                src={assignee.avatarUrl}
+                                alt=""
+                                className="size-full object-cover"
+                              />
+                            ) : (
+                              assignee.initials
+                            )}
                           </span>
                           {assignee.name.split(" ")[0]}
                         </span>

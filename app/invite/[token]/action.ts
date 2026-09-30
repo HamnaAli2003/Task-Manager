@@ -12,6 +12,7 @@ import {
     emitInviteAcceptedEvent,
     emitMemberJoinedEvent,
 } from "@/lib/notifications.server";
+import { logActivityEvent } from "@/lib/activity.server";
 
 const WORKSPACE_COOKIE = "pmp-workspace";
 
@@ -89,6 +90,16 @@ export async function acceptInviteAction(
     // 5) Notifications — only when someone actually NEW joined
     //    (no duplicate rows, no MEMBER_JOINED spam for existing members).
     if (!alreadyMember) {
+            // MEMBER history log — invite accepted, membership created.
+    await logActivityEvent({
+      workspaceId: invite.workspaceId,
+      category: "MEMBER",
+      type: "MEMBER_JOINED",
+      actorName: user.name ?? user.email ?? "Someone",
+      targetName: user.name ?? user.email ?? "Someone",
+      message: `${user.name ?? user.email ?? "Someone"} joined the workspace via invite.`,
+    });
+
         await emitInviteAcceptedEvent({
             workspaceId: invite.workspaceId,
             inviterId: invite.createdById,

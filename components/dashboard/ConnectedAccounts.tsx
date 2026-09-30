@@ -100,7 +100,8 @@ export default function ConnectedAccounts({
               border border-accent/40 bg-clay-bg px-4 py-2
               text-sm font-bold text-accent shadow-(--clay-drop)
               transition hover:-translate-y-0.5 hover:bg-accent
-              hover:text-white disabled:cursor-wait disabled:opacity-60
+              dark:hover:bg-accent dark:hover:text-white
+              hover:text-black disabled:cursor-wait disabled:opacity-60
             "
           >
             {pending ? "Connecting..." : "Connect Google"}

@@ -1,31 +1,45 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import {
-  activityLabel,
-  useDataStore,
-  type ActivityEntry,
-} from "@/lib/dataStore";
+import { getWorkspaceActivityAction } from "@/app/(dashboard)/dashboard/action";
 
-const ACTIVITY_ICON: Record<ActivityEntry["type"], string> = {
-  "task-created": "+",
-  "task-updated": "↻",
-  "task-deleted": "×",
-  "task-done": "✓",
-  "project-created": "▣",
-  "project-updated": "↻",
-  "project-deleted": "▣",
+type ActivityEventRow = {
+  id: string;
+  type: string;
+  message: string;
+  actorName: string | null;
+  createdAt: string;
 };
 
-const ACTIVITY_COLOR: Record<ActivityEntry["type"], string> = {
-  "task-created": "bg-accent",
-  "task-updated": "bg-info",
-  "task-deleted": "bg-danger",
-  "task-done": "bg-success",
-  "project-created": "bg-warning",
-  "project-updated": "bg-info",
-  "project-deleted": "bg-danger",
+const ACTIVITY_ICON: Record<string, string> = {
+  TASK_CREATED: "+",
+  TASK_UPDATED: "↻",
+  TASK_STATUS_CHANGED: "↻",
+  TASK_ASSIGNED: "→",
+  TASK_COMPLETED: "✓",
+  TASK_DELETED: "×",
+  PROJECT_CREATED: "▣",
+  PROJECT_UPDATED: "↻",
+  PROJECT_DELETED: "×",
+  INVITE_SENT: "✉",
+  MEMBER_JOINED: "+",
+  MEMBER_REMOVED: "×",
+};
+
+const ACTIVITY_COLOR: Record<string, string> = {
+  TASK_CREATED: "bg-accent",
+  TASK_UPDATED: "bg-info",
+  TASK_STATUS_CHANGED: "bg-warning",
+  TASK_ASSIGNED: "bg-accent",
+  TASK_COMPLETED: "bg-success",
+  TASK_DELETED: "bg-danger",
+  PROJECT_CREATED: "bg-warning",
+  PROJECT_UPDATED: "bg-info",
+  PROJECT_DELETED: "bg-danger",
+  INVITE_SENT: "bg-info",
+  MEMBER_JOINED: "bg-success",
+  MEMBER_REMOVED: "bg-danger",
 };
 
 function timeAgo(iso: string, now: number): string {
@@ -40,23 +54,40 @@ function timeAgo(iso: string, now: number): string {
   return `${days}d ago`;
 }
 
-export default function LiveActivity() {
-  const activities = useDataStore((state) => state.activities);
-  const projects = useDataStore((state) => state.projects);
+export default function LiveActivity({
+  initialActivities,
+}: {
+  initialActivities: ActivityEventRow[];
+}) {
+  const [activities, setActivities] = useState(initialActivities);
   const [now, setNow] = useState(() => Date.now());
   const [mounted, setMounted] = useState(false);
+
+  // 15s poll — workspace-scoped (action filters by the ACTIVE workspace).
+  const refresh = useCallback(async () => {
+    try {
+      const events = await getWorkspaceActivityAction();
+      setActivities(events);
+    } catch {
+      // keep last snapshot on failure
+    }
+  }, []);
 
   useEffect(() => {
     const timer = window.setInterval(() => {
       setNow(Date.now());
       setMounted(true);
     }, 1_000);
-    return () => window.clearInterval(timer);
-  }, []);
 
-  const projectNames = new Map(
-    projects.map((project) => [project.id, project.name])
-  );
+    const poll = window.setInterval(() => {
+      void refresh();
+    }, 15_000);
+
+    return () => {
+      window.clearInterval(timer);
+      window.clearInterval(poll);
+    };
+  }, [refresh]);
 
   return (
     <section className="rounded-3xl border border-glass-border bg-glass-bg bg-linear-to-br from-accent/10 via-transparent to-success/10 p-4 shadow-(--clay-deep) backdrop-blur-xl">
@@ -78,37 +109,29 @@ export default function LiveActivity() {
       <div className="hide-scrollbar max-h-96 space-y-3 overflow-y-auto pr-0.5">
         {activities.length === 0 ? (
           <div className="rounded-xl border border-dashed border-border-light bg-surface-elevated p-4 text-center text-[11px] leading-5 text-text-muted">
-            No activity yet — changes you make across the app show up here
-            instantly.
+            No activity yet in this workspace — invites, joins and task changes
+            show up here.
           </div>
         ) : (
           activities.map((activity) => (
             <div key={activity.id} className="flex gap-3">
               <div
-                className={`flex size-8 shrink-0 items-center justify-center rounded-full ${ACTIVITY_COLOR[activity.type]} text-sm font-bold text-white`}
+                className={`flex size-8 shrink-0 items-center justify-center rounded-full ${
+                  ACTIVITY_COLOR[activity.type] ?? "bg-text-muted"
+                } text-sm font-bold text-white`}
               >
-                {ACTIVITY_ICON[activity.type]}
+                {ACTIVITY_ICON[activity.type] ?? "•"}
               </div>
 
               <div className="min-w-0">
                 <p className="text-[10px] leading-4 text-text-secondary">
-                  <span className="font-bold text-text">
-                    {activityLabel(activity.type)}
-                  </span>{" "}
                   <span className="font-semibold text-text">
-                    {activity.detail}
+                    {activity.message}
                   </span>
-                  {activity.projectId &&
-                    projectNames.get(activity.projectId) && (
-                      <span className="text-text-muted">
-                        {" "}
-                        · {projectNames.get(activity.projectId)}
-                      </span>
-                    )}
                 </p>
 
                 <p className="mt-0.5 text-[9px] text-text-muted">
-                  {mounted ? timeAgo(activity.at, now) : ""}
+                  {mounted ? timeAgo(activity.createdAt, now) : ""}
                 </p>
               </div>
             </div>

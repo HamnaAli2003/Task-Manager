@@ -12,7 +12,7 @@ import WorkspaceSwitcher from "./WorkspaceSwitcher";
 
 const RECENT_DOT = ["bg-info", "bg-success", "bg-accent", "bg-warning"];
 
-function NavIcon({ type }: { type: "dashboard" | "projects" | "tasks" }) {
+function NavIcon({ type }: { type: "dashboard" | "projects" | "tasks" | "members" }) {
     const paths = {
         dashboard: (
             <>
@@ -35,6 +35,14 @@ function NavIcon({ type }: { type: "dashboard" | "projects" | "tasks" }) {
                 <path d="M14 9h2" />
                 <path d="m8 14 1.5 1.5L12 13" />
                 <path d="M14 15h2" />
+            </>
+        ),
+        members: (
+            <>
+                <path d="M3 7.5h18" />
+                <path d="M5 5h5l2 2.5h7a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-9A2 2 0 0 1 5 5Z" />
+                <circle cx="9" cy="21" r="1" />
+                <circle cx="15" cy="21" r="1" />
             </>
         ),
     };
@@ -138,7 +146,7 @@ export default function DashboardSidebar({
           ${open ? "translate-x-0" : "-translate-x-full"}
         `}
             >
-                <div className="flex h-full flex-col overflow-y-auto rounded-3xl border border-glass-border bg-glass-bg/75 p-5 shadow-(--glass-shadow) backdrop-blur-2xl no-scrollbar">
+                <div className="flex h-screen flex-col overflow-y-auto rounded-3xl border border-glass-border bg-glass-bg/75 p-5 shadow-(--glass-shadow) backdrop-blur-2xl no-scrollbar">
                     {/* Logo */}
                     <div className="mb-8 flex items-start gap-2">
                         <div className="flex min-w-0 flex-1 items-center gap-3">
@@ -234,6 +242,15 @@ export default function DashboardSidebar({
                         >
                             <NavIcon type="tasks" />
                             Tasks
+                        </Link>
+
+                        <Link
+                            href="/members"
+                            onClick={close}
+                            className={navClass("/members")}
+                        >
+                            <NavIcon type="members" />
+                            Members
                         </Link>
                     </nav>
 

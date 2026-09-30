@@ -5,10 +5,13 @@
 // accepting it happens in app/invite/[token]/actions.ts (File 6).
 import { randomBytes } from "crypto";
 import { headers } from "next/headers";
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/workspace.server";
 import { emitInviteSentEvent } from "@/lib/notifications.server";
 import { z } from "zod";
+import { revalidatePath } from "next/cache";
+
 
 // Links are valid for 7 days; tokens are 24 random bytes (~192 bits).
 const INVITE_TTL_DAYS = 7;
@@ -34,6 +37,12 @@ async function requireMembership(workspaceId: string, userId: string) {
     where: { workspaceId_userId: { workspaceId, userId } },
   });
 }
+
+type WorkspaceMemberWithUser = Prisma.WorkspaceMemberGetPayload<{
+  include: {
+    user: { select: { id: true; name: true; email: true; image: true } };
+  };
+}>;
 
 /** Builds the absolute invite URL from the incoming request host. */
 async function buildInviteLink(token: string): Promise<string> {
@@ -144,13 +153,14 @@ export async function createInviteAction(
       });
     }
   }
-
   const inviteLink = await buildInviteLink(invite.token);
   return { ok: true, inviteLink };
 }
 
 /** Members list for the members page (newest joins last). */
-export async function listWorkspaceMembers(workspaceId: string) {
+export async function listWorkspaceMembers(
+  workspaceId: string
+): Promise<WorkspaceMemberWithUser[]> {
   const user = await requireUser();
 
   const membership = await requireMembership(workspaceId, user.id);
@@ -166,11 +176,25 @@ export async function listWorkspaceMembers(workspaceId: string) {
 }
 
 /** Pending (unused + unexpired) invites for the members page. */
-export async function listWorkspaceInvites(workspaceId: string) {
+export async function listWorkspaceInvites(
+  workspaceId: string
+): Promise<Prisma.InviteGetPayload<Prisma.InviteDefaultArgs>[]> {
   const user = await requireUser();
 
-  const membership = await requireMembership(workspaceId, user.id);
-  if (!membership) return [];
+  const [membership, workspace] = await Promise.all([
+    requireMembership(workspaceId, user.id),
+    prisma.workspace.findUnique({
+      where: { id: workspaceId },
+      select: { ownerId: true, type: true },
+    }),
+  ]);
+  if (
+    membership?.role !== "OWNER" ||
+    workspace?.ownerId !== user.id ||
+    workspace.type !== "TEAM"
+  ) {
+    return [];
+  }
 
   return prisma.invite.findMany({
     where: {
@@ -191,15 +215,89 @@ export async function revokeInviteAction(
   const invite = await prisma.invite.findUnique({ where: { id: inviteId } });
   if (!invite) return { ok: false, error: "Invite not found." };
 
-  // Only the workspace owner or the invite creator may revoke.
-  const workspace = await prisma.workspace.findUnique({
-    where: { id: invite.workspaceId },
-  });
+  const [workspace, membership] = await Promise.all([
+    prisma.workspace.findUnique({
+      where: { id: invite.workspaceId },
+      select: { ownerId: true, type: true },
+    }),
+    requireMembership(invite.workspaceId, user.id),
+  ]);
 
-  if (workspace?.ownerId !== user.id && invite.createdById !== user.id) {
-    return { ok: false, error: "You are not allowed to revoke this invite." };
+  if (
+    workspace?.ownerId !== user.id ||
+    membership?.role !== "OWNER" ||
+    workspace.type !== "TEAM"
+  ) {
+    return { ok: false, error: "Only the workspace owner can revoke invites." };
   }
 
   await prisma.invite.delete({ where: { id: inviteId } });
+  revalidatePath("/members");
+  return { ok: true };
+}
+/**
+ * Removes a member from the workspace. OWNER-only.
+ *
+ * Safeguards (all server-side):
+ * 1. Caller's membership role must be OWNER *and* they must be the
+ *    workspace.ownerId (defense in depth).
+ * 2. PERSONAL workspaces can never have members removed (they are private).
+ * 3. The workspace owner can never be removed from their own workspace.
+ * 4. The target must be an active member.
+ *
+ * The removed user keeps their app account, their other workspace
+ * memberships, and their created projects/tasks/activity history.
+ */
+export async function removeMemberAction(
+  workspaceId: string,
+  memberId: string
+): Promise<{ ok: boolean; error?: string }> {
+  const user = await requireUser();
+
+  const workspace = await prisma.workspace.findUnique({
+    where: { id: workspaceId },
+    select: { ownerId: true, type: true },
+  });
+  if (!workspace) {
+    return { ok: false, error: "Workspace not found." };
+  }
+
+  // Rule 1: caller must be the OWNER (role check + ownership check).
+  const callerMembership = await requireMembership(workspaceId, user.id);
+  if (
+    !callerMembership ||
+    callerMembership.role !== "OWNER" ||
+    workspace.ownerId !== user.id
+  ) {
+    return { ok: false, error: "Only the workspace owner can remove members." };
+  }
+
+  // Rule 2: personal workspaces are private — nothing to remove.
+  if (workspace.type === "PERSONAL") {
+    return { ok: false, error: "Personal spaces have no removable members." };
+  }
+
+  // Rule 3: the owner can never be removed from their own workspace.
+  if (memberId === workspace.ownerId) {
+    return { ok: false, error: "The workspace owner cannot be removed." };
+  }
+
+  // Rule 4: target must be an active member.
+  const membership = await prisma.workspaceMember.findUnique({
+    where: { workspaceId_userId: { workspaceId, userId: memberId } },
+  });
+  if (!membership) {
+    return { ok: false, error: "This user is not a member of this workspace." };
+  }
+
+  // Snapshot the name before deleting the membership row.
+  const targetUser = await prisma.user.findUnique({
+    where: { id: memberId },
+    select: { name: true, email: true },
+  });
+
+  await prisma.workspaceMember.delete({ where: { id: membership.id } });
+
+  revalidatePath("/", "layout");
   return { ok: true };
 }

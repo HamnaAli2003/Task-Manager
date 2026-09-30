@@ -13,6 +13,7 @@ export type TeamMember = {
   role: string;
   initials: string;
   color: string;
+  avatarUrl?: string | null;
 };
 
 // NOTE: sirf UI display ke liye (task cards pe assignee). M2 mein
