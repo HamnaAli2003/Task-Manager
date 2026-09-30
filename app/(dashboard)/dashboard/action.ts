@@ -5,10 +5,10 @@ import { listWorkspaceActivity } from "@/lib/activity.server";
 
 /** Live Activity widget feed — ACTIVE workspace only, newest 20. */
 export async function getWorkspaceActivityAction() {
-    await requireUser();
+    const user = await requireUser();
     const workspace = await getActiveWorkspace();
 
-    const events = await listWorkspaceActivity(workspace.id, 20);
+    const events = await listWorkspaceActivity(workspace.id, 20, user.id);
 
     type WorkspaceActivityEvent = {
         id: string;

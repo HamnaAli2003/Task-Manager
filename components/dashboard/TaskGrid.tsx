@@ -11,12 +11,22 @@ type TaskGridProps = {
   serverTasks: Task[];
   projectId?: string;
   showProjectName?: boolean;
+  canEditTasks?: boolean;
+  canDeleteTasks?: boolean;
+  accessByProjectId?: Record<string, {
+    canView: boolean;
+    canEditTasks: boolean;
+    canDeleteTasks: boolean;
+  }>;
 };
 
 export default function TaskGrid({
   serverTasks,
   projectId,
   showProjectName = false,
+  canEditTasks = true,
+  canDeleteTasks = true,
+  accessByProjectId,
 }: TaskGridProps) {
   const searchParams = useSearchParams();
   const tasks = useStoreData(serverTasks, (state) => state.tasks);
@@ -74,6 +84,8 @@ export default function TaskGrid({
               showProjectName ? projectNames.get(task.projectId) : undefined
             }
             deleteAction={deleteTask}
+            canEditTask={accessByProjectId?.[task.projectId]?.canEditTasks ?? canEditTasks}
+            canDeleteTask={accessByProjectId?.[task.projectId]?.canDeleteTasks ?? canDeleteTasks}
           />
         ))}
       </section>

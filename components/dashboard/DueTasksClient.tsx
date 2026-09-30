@@ -7,8 +7,9 @@ import {
   STATUS_DOT,
   STATUS_LABELS,
 } from "@/lib/taskOptions";
-import { TEAM_MEMBERS_BY_ID } from "@/lib/data";
 import DueTaskDoneButton from "./DueTaskDoneButton";
+import AssigneeAvatars from "./AssigneeAvatars";
+import { useUser } from "./useUser";
 
 function isoDate(daysFromNow: number): string {
   const date = new Date();
@@ -36,6 +37,7 @@ export default function DueTasksClient() {
   const tasks = useDataStore((state) => state.tasks);
   const projects = useDataStore((state) => state.projects);
   const markTaskDone = useDataStore((state) => state.markTaskDone);
+  const user = useUser();
 
   const projectNames = new Map(
     projects.map((project) => [project.id, project.name])
@@ -87,9 +89,7 @@ export default function DueTasksClient() {
             </thead>
             <tbody>
               {upcomingTasks.map((task) => {
-                const assignee = task.assigneeId
-                  ? TEAM_MEMBERS_BY_ID.get(task.assigneeId)
-                  : undefined;
+                const assignee = task.assignees[0];
 
                 return (
                   <tr key={task.id} className="border-t border-border-light">
@@ -114,22 +114,10 @@ export default function DueTasksClient() {
                     <td className="px-3 py-3">
                       {assignee ? (
                         <span className="flex items-center gap-2 whitespace-nowrap text-text-secondary">
-                          <span
-                            title={assignee.name}
-                            className={`flex size-7 shrink-0 items-center justify-center overflow-hidden rounded-full ${assignee.color} text-[9px] font-bold text-white`}
-                          >
-                            {assignee.avatarUrl ? (
-                              // eslint-disable-next-line @next/next/no-img-element
-                              <img
-                                src={assignee.avatarUrl}
-                                alt=""
-                                className="size-full object-cover"
-                              />
-                            ) : (
-                              assignee.initials
-                            )}
-                          </span>
-                          {assignee.name.split(" ")[0]}
+                          <AssigneeAvatars assignees={task.assignees} max={4} />
+                          {task.assignees.length === 1
+                            ? assignee.name.split(" ")[0]
+                            : `${task.assignees.length} assignees`}
                         </span>
                       ) : (
                         <span className="text-text-muted">Unassigned</span>
@@ -141,7 +129,9 @@ export default function DueTasksClient() {
                       </span>
                     </td>
                     <td className="px-3 py-3 text-right">
-                      <DueTaskDoneButton action={() => markTaskDone(task.id)} />
+                      {task.assignees.some((item) => item.id === user.id) ? (
+                        <DueTaskDoneButton action={() => markTaskDone(task.id)} />
+                      ) : null}
                     </td>
                   </tr>
                 );

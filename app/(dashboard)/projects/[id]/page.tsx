@@ -4,7 +4,8 @@ import { useEffect } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useDataStore } from "@/lib/dataStore";
-import ProjectDeleteButton from "@/components/dashboard/ProjectDeleteButton";
+import ProjectManagementControls from "@/components/dashboard/ProjectManagementControls";
+import ProjectMemberPermissions from "@/components/dashboard/ProjectMemberPermissions";
 
 export default function ProjectPage() {
   const { id } = useParams<{ id: string }>();
@@ -75,18 +76,10 @@ export default function ProjectPage() {
                 </h1>
 
                 <div className="flex flex-wrap items-center gap-3">
-                  <Link
-                    href={`/projects/${project.id}/edit`}
-                    className="
-                      rounded-xl border border-border-light bg-clay-bg
-                      px-4 py-2 text-sm font-semibold text-text-secondary
-                      shadow-sm transition hover:border-black hover:text-black
-                    "
-                  >
-                    Edit project
-                  </Link>
-
-                  <ProjectDeleteButton projectName={project.name} />
+                  <ProjectManagementControls
+                    projectId={project.id}
+                    projectName={project.name}
+                  />
                 </div>
               </div>
 
@@ -147,6 +140,8 @@ export default function ProjectPage() {
                 </span>
               </Link>
             </section>
+
+            <ProjectMemberPermissions projectId={project.id} />
           </>
         )}
       </div>

@@ -27,9 +27,13 @@ export async function logActivityEvent(input: {
 export async function listWorkspaceActivity(
   workspaceId: string,
   limit = 50,
+  userId?: string,
 ) {
   return prisma.activityEvent.findMany({
-    where: { workspaceId },
+    where: {
+      workspaceId,
+      ...(userId ? { dismissals: { none: { userId } } } : {}),
+    },
     orderBy: { createdAt: "desc" },
     take: limit,
   });
@@ -38,12 +42,14 @@ export async function listWorkspaceActivity(
 /** Member-only activity for the members history panel. */
 export async function listMemberActivity(
   workspaceId: string,
+  userId?: string,
   limit = 50,
 ) {
   return prisma.activityEvent.findMany({
     where: {
       workspaceId,
       category: "MEMBER",
+      ...(userId ? { dismissals: { none: { userId } } } : {}),
     },
     orderBy: { createdAt: "desc" },
     take: limit,

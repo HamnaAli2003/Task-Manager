@@ -41,6 +41,7 @@ export default function NewTaskForm({
       </div>
 
       <TaskForm
+        projectId={projectId}
         action={(values) => action(projectId, values)}
         redirectTo={`/projects/${projectId}/tasks`}
         submitLabel={submitLabel}

@@ -3,16 +3,12 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-import type { Project } from "@/lib/data";
-import { useDataStore, useStoreData } from "@/lib/dataStore";
 import SidebarUser from "./SidebarUser";
 import NotificationBell from "./NotificationBell";
 import ThemeToggle from "../ThemeToggle";
 import WorkspaceSwitcher from "./WorkspaceSwitcher";
 
-const RECENT_DOT = ["bg-info", "bg-success", "bg-accent", "bg-warning"];
-
-function NavIcon({ type }: { type: "dashboard" | "projects" | "tasks" | "members" }) {
+function NavIcon({ type }: { type: "dashboard" | "projects" | "tasks" | "members" | "recent" }) {
     const paths = {
         dashboard: (
             <>
@@ -45,6 +41,12 @@ function NavIcon({ type }: { type: "dashboard" | "projects" | "tasks" | "members
                 <circle cx="15" cy="21" r="1" />
             </>
         ),
+        recent: (
+            <>
+                <circle cx="12" cy="12" r="9" />
+                <path d="M12 7v5l3 2" />
+            </>
+        ),
     };
 
     return (
@@ -64,13 +66,11 @@ function NavIcon({ type }: { type: "dashboard" | "projects" | "tasks" | "members
 }
 
 export default function DashboardSidebar({
-    projects,
     unreadCount = 0,
     workspaces,
     activeWorkspaceId,
     children,
 }: Readonly<{
-    projects: Project[];
     unreadCount: number;
     workspaces: { id: string; name: string; type?: string; logoUrl?: string | null }[];
     activeWorkspaceId: string;
@@ -78,12 +78,6 @@ export default function DashboardSidebar({
 }>) {
     const [open, setOpen] = useState(false);
     const pathname = usePathname();
-    const allProjects = useStoreData(projects, (state) => state.projects);
-    const recentProjectIds = useDataStore((state) => state.recentProjectIds);
-
-    const recentProjects = recentProjectIds
-        .map((id) => allProjects.find((project) => project.id === id))
-        .filter((project): project is Project => Boolean(project));
 
     const close = () => setOpen(false);
 
@@ -140,15 +134,15 @@ export default function DashboardSidebar({
             <aside
                 className={`
           fixed inset-y-0 left-0 z-50
-          flex w-72 flex-col p-3
+          flex w-[min(18rem,calc(100vw-1rem))] flex-col p-2
           transition-transform duration-300 ease-in-out
-          md:sticky md:top-0 md:z-auto md:h-screen md:translate-x-0
+          sm:w-72 sm:p-3 md:sticky md:top-0 md:z-auto md:h-screen md:translate-x-0
           ${open ? "translate-x-0" : "-translate-x-full"}
         `}
             >
-                <div className="flex h-screen flex-col overflow-y-auto rounded-3xl border border-glass-border bg-glass-bg/75 p-5 shadow-(--glass-shadow) backdrop-blur-2xl no-scrollbar">
+                <div className="flex h-full min-h-0 flex-col overflow-y-auto rounded-3xl border border-glass-border bg-glass-bg/75 p-3 shadow-(--glass-shadow) backdrop-blur-2xl sm:p-5 md:overflow-hidden">
                     {/* Logo */}
-                    <div className="mb-8 flex items-start gap-2">
+                    <div className="mb-9 flex items-start gap-2">
                         <div className="flex min-w-0 flex-1 items-center gap-3">
                             <div
                                 className="
@@ -196,7 +190,7 @@ export default function DashboardSidebar({
                     </div>
 
                     {/* Workspace */}
-                    <div className="mb-7 rounded-xl border border-white/70 bg-white/55 p-2 shadow-sm backdrop-blur-xl dark:border-slate-700 dark:bg-slate-800/80">
+                    <div className="mb-9 rounded-xl border border-white/70 bg-white/55 p-2 shadow-sm backdrop-blur-xl dark:border-slate-700 dark:bg-slate-800/80">
                         <div className="mb-2 flex items-center justify-between px-1">
                             <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-text-muted dark:text-slate-400">
                                 Workspace
@@ -216,7 +210,7 @@ export default function DashboardSidebar({
                     </div>
 
                     {/* Navigation */}
-                    <nav className="space-y-1.5">
+                    <nav className="space-y-2.5">
                         <Link
                             href="/dashboard"
                             onClick={close}
@@ -252,41 +246,19 @@ export default function DashboardSidebar({
                             <NavIcon type="members" />
                             Members
                         </Link>
+
+                        <Link
+                            href="/recent"
+                            onClick={close}
+                            className={navClass("/recent")}
+                        >
+                            <NavIcon type="recent" />
+                            Recents
+                        </Link>
                     </nav>
 
-                    {/* Recent */}
-                    {recentProjects.length > 0 && (
-                        <div className="mt-8">
-                            <p className="mb-3 px-3 text-[10px] font-bold uppercase tracking-wider text-text-muted dark:text-slate-400">
-                                <span className="mr-1.5">🕔</span>
-                                Recent
-                            </p>
-
-                            {recentProjects.map((project, index) => (
-                                <Link
-                                    key={project.id}
-                                    href={`/projects/${project.id}`}
-                                    onClick={close}
-                                    className="
-                        mt-1 flex items-center gap-3
-                        rounded-xl px-3 py-2
-                        text-xs font-medium
-                        text-text-secondary
-                        transition hover:bg-accent-soft
-                        dark:text-slate-300 dark:hover:text-purple-300
-                      "
-                                >
-                                    <span
-                                        className={`size-2 shrink-0 rounded-full ${RECENT_DOT[index % RECENT_DOT.length]}`}
-                                    />
-                                    <span>{project.name}</span>
-                                </Link>
-                            ))}
-                        </div>
-                    )}
-
                     {/* Bottom User */}
-                    <div className="mt-auto">
+                    <div className="mt-auto border-t border-glass-border/80 pt-5">
                         <SidebarUser />
                     </div>
                 </div>

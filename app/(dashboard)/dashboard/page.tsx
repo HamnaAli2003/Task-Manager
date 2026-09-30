@@ -22,7 +22,7 @@ export default async function DashboardPage() {
       },
       select: { role: true },
     }),
-    listWorkspaceActivity(workspace.id, 20),
+    listWorkspaceActivity(workspace.id, 20, user.id),
   ]);
 
   // Serialize once — both LiveActivity instances share this snapshot.
@@ -34,11 +34,11 @@ export default async function DashboardPage() {
       actorName: string | null;
       createdAt: Date;
     }) => ({
-    id: event.id,
-    type: event.type,
-    message: event.message,
-    actorName: event.actorName,
-    createdAt: event.createdAt.toISOString(),
+      id: event.id,
+      type: event.type,
+      message: event.message,
+      actorName: event.actorName,
+      createdAt: event.createdAt.toISOString(),
     }),
   );
 

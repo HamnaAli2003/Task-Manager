@@ -1,10 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { cookies } from "next/headers";
-import { redirect } from "next/navigation";
-import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { getProjectAccess } from "@/lib/access.server";
 import { createTask, deleteTask, getTask, updateTask } from "@/lib/data.server";
 import { emitNotification } from "@/lib/notifications.server";
 import { getActiveWorkspace, getUser } from "@/lib/workspace.server";
@@ -40,13 +38,14 @@ async function getTaskPermissions(
   });
 
   const isOwner = membership?.role === "OWNER";
-  const isAssignee = task.assigneeId === userId;
+  const isAssignee = task.assignees.some((assignee) => assignee.id === userId);
+  const access = await getProjectAccess(userId, task.projectId);
 
   return {
-    canCreate: isOwner,
-    canEdit: isOwner,
-    canUpdateStatus: isOwner || isAssignee,
-    canDelete: isOwner,
+    canCreate: access.canCreateTasks,
+    canEdit: isOwner || access.canEditTasks,
+    canUpdateStatus: isAssignee,
+    canDelete: access.canDeleteTasks,
   };
 }
 
@@ -91,8 +90,8 @@ async function emitTaskMutationNotifications(
   taskTitle: string,
   newStatus?: string,
   newPriority?: string,
-  newAssigneeId?: string,
-  previousAssigneeId?: string
+  newAssigneeIds: string[] = [],
+  previousAssigneeIds: string[] = []
 ) {
   const task = await getTask(workspaceId, taskId);
   if (!task) return;
@@ -105,11 +104,14 @@ async function emitTaskMutationNotifications(
   if (mutationType === "TASK_STATUS_CHANGED" || mutationType === "TASK_PRIORITY_CHANGED") {
     // Notify task creator + current assignee (if different from actor)
     if (creatorId && creatorId !== actorId) notifiedUserIds.add(creatorId);
-    if (task.assigneeId && task.assigneeId !== actorId) notifiedUserIds.add(task.assigneeId);
+    for (const assignee of task.assignees) {
+      if (assignee.id !== actorId) notifiedUserIds.add(assignee.id);
+    }
   } else if (mutationType === "TASK_ASSIGNED") {
     // Notify new + previous assignee (exclude actor)
-    if (newAssigneeId && newAssigneeId !== actorId) notifiedUserIds.add(newAssigneeId);
-    if (previousAssigneeId && previousAssigneeId !== actorId) notifiedUserIds.add(previousAssigneeId);
+    for (const userId of [...newAssigneeIds, ...previousAssigneeIds]) {
+      if (userId !== actorId) notifiedUserIds.add(userId);
+    }
   } else {
     // TASK_CREATED, TASK_UPDATED, TASK_DELETED: notify task creator only
     if (creatorId && creatorId !== actorId) notifiedUserIds.add(creatorId);
@@ -128,7 +130,7 @@ async function emitTaskMutationNotifications(
       message = `${actorName} changed priority of "${taskTitle}" to ${newPriority ?? "unknown"}`;
       break;
     case "TASK_ASSIGNED":
-      message = `${actorName} assigned "${taskTitle}" to ${newAssigneeId ? "new assignee" : "previous assignee"
+      message = `${actorName} assigned "${taskTitle}" to ${newAssigneeIds.length ? "new assignee" : "previous assignee"
         }`;
       break;
     case "TASK_UPDATED":
@@ -140,11 +142,15 @@ async function emitTaskMutationNotifications(
   }
 
   // Emit notifications for each notified user
+  if (mutationType !== "TASK_STATUS_CHANGED" && mutationType !== "TASK_ASSIGNED") {
+    return;
+  }
+
   if (notifiedUserIds.size > 0) {
     for (const userId of notifiedUserIds) {
       await emitNotification({
         userId,
-        type: mutationType as any,
+        type: mutationType,
         message,
         workspaceId,
         actorId,
@@ -173,7 +179,39 @@ export async function createTaskAction(
     return { ok: false, error: "Please log in to create tasks." };
   }
 
-  const task = await createTask(workspace.id, projectId, parsed.data);
+  const project = await prisma.project.findFirst({
+    where: { id: projectId, workspaceId: workspace.id },
+    select: { id: true },
+  });
+  if (!project) {
+    return { ok: false, error: "Project not found." };
+  }
+  const access = await getProjectAccess(actor.id, projectId);
+  if (!access.canCreateTasks) {
+    return { ok: false, error: "You don't have permission to create tasks in this project." };
+  }
+
+  const assigneeIds = parsed.data.assigneeIds;
+  const validAssignees = await prisma.workspaceMember.findMany({
+    where: { workspaceId: workspace.id, userId: { in: assigneeIds } },
+    select: {
+      userId: true,
+      user: { select: { name: true, image: true } },
+    },
+  });
+  if (validAssignees.length !== assigneeIds.length) {
+    return { ok: false, error: "Choose assignees from this workspace." };
+  }
+
+  const task = await createTask(workspace.id, projectId, {
+    ...parsed.data,
+    assignees: validAssignees.map(({ userId, user }) => ({
+      id: userId,
+      name: user.name ?? "Unnamed user",
+      image: user.image,
+    })),
+    createdBy: actor.id,
+  });
 
   // Log mutation + notify (actor excluded; creator + assignee notified for TASK_CREATED)
   await emitTaskMutationNotifications(
@@ -185,12 +223,36 @@ export async function createTaskAction(
     task.title,
     /* newStatus */ undefined,
     /* newPriority */ undefined,
-    /* newAssigneeId */ task.assigneeId,
-    /* previousAssigneeId */ undefined
+    task.assignees.map((assignee) => assignee.id),
+    [],
   );
 
   revalidatePath(`/projects/${projectId}/tasks`);
   return { ok: true, task };
+}
+
+export async function getTaskAssigneeOptionsAction(projectId: string) {
+  const user = await getUser();
+  if (!user) return [];
+
+  const workspace = await getActiveWorkspace();
+  const access = await getProjectAccess(user.id, projectId);
+  if (!access.canView) return [];
+
+  const members = await prisma.workspaceMember.findMany({
+    where: { workspaceId: workspace.id },
+    include: {
+      user: { select: { id: true, name: true, image: true } },
+    },
+    orderBy: { joinedAt: "asc" },
+  });
+
+  return members.map(({ user: member, role }) => ({
+    id: member.id,
+    name: member.name ?? "Unnamed user",
+    image: member.image,
+    role,
+  }));
 }
 
 export async function updateTaskAction(
@@ -213,6 +275,14 @@ export async function updateTaskAction(
 
   if (!permissions.canEdit) {
     return { ok: false, error: "You don't have permission to edit tasks in this workspace." };
+  }
+
+  const existingTask = await getTask(workspace.id, taskId);
+  if (!existingTask) {
+    return { ok: false, error: "Task not found." };
+  }
+  if (parsed.data.status !== existingTask.status && !permissions.canUpdateStatus) {
+    return { ok: false, error: "Only an assignee can change this task's status." };
   }
 
   const result = await updateTask(workspace.id, taskId, parsed.data);
@@ -311,7 +381,7 @@ export async function markTaskDoneAction(
 
   const permissions = await getTaskPermissions(workspace.id, taskId, currentUser.id);
 
-  // Assignee can update status on own task; owner can on any task
+  // Only an assignee can update this task's status.
   if (!permissions.canUpdateStatus) {
     return { ok: false, error: "You don't have permission to update the status of this task." };
   }
@@ -363,7 +433,7 @@ export async function markTaskStatusAction(
 
   const permissions = await getTaskPermissions(workspace.id, taskId, currentUser.id);
 
-  // Assignee can update status on own task; owner can on any task
+  // Only an assignee can update this task's status.
   if (!permissions.canUpdateStatus) {
     return { ok: false, error: "You don't have permission to update the status of this task." };
   }

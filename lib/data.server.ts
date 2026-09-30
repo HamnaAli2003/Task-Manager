@@ -43,17 +43,15 @@ function toProject(project: {
     };
 }
 
-function toTask(task: {
-    id: string;
-    projectId: string;
-    title: string;
-    description: string;
-    status: string;
-    priority: string;
-    due: string;
-    assigneeId: string | null;
-    createdBy: string | null;
-}): Task {
+const taskInclude = {
+    taskAssignees: {
+        include: { user: { select: { id: true, name: true, image: true } } },
+    },
+} satisfies Prisma.TaskInclude;
+
+type TaskRecord = Prisma.TaskGetPayload<{ include: typeof taskInclude }>;
+
+function toTask(task: TaskRecord): Task {
     return {
         id: task.id,
         projectId: task.projectId,
@@ -62,7 +60,11 @@ function toTask(task: {
         status: task.status as Task["status"],
         priority: task.priority as Task["priority"],
         due: task.due,
-        assigneeId: task.assigneeId ?? undefined,
+        assignees: task.taskAssignees.map(({ user }) => ({
+            id: user.id,
+            name: user.name ?? "Unnamed user",
+            image: user.image,
+        })),
         createdBy: task.createdBy ?? undefined,
     };
 }
@@ -91,6 +93,7 @@ export async function getTask(
 ): Promise<Task | undefined> {
     const row = await prisma.task.findFirst({
         where: { id: taskId, project: { workspaceId } },
+        include: taskInclude,
     });
     return row ? toTask(row) : undefined;
 }
@@ -121,6 +124,7 @@ export async function getProjectTasks(
     const rows = await prisma.task.findMany({
         where: { projectId, project: { workspaceId }, ...buildTaskWhere(filters) },
         orderBy: { createdAt: "asc" },
+        include: taskInclude,
     });
     return rows.map(toTask);
 }
@@ -132,6 +136,7 @@ export async function getAllTasks(
     const rows = await prisma.task.findMany({
         where: { project: { workspaceId }, ...buildTaskWhere(filters) },
         orderBy: { createdAt: "asc" },
+        include: taskInclude,
     });
     return rows.map(toTask);
 }
@@ -147,6 +152,7 @@ export async function getUpcomingTasks(
             project: { workspaceId },
         },
         orderBy: { due: "asc" },
+        include: taskInclude,
     });
     return rows.map(toTask);
 }
@@ -238,9 +244,12 @@ export async function createTask(
             status: input.status,
             priority: input.priority,
             due: input.due,
-            assigneeId: input.assigneeId ?? null,
+            taskAssignees: {
+                create: input.assignees.map(({ id }) => ({ userId: id })),
+            },
             createdBy: input.createdBy ?? null,
         },
+        include: taskInclude,
     });
     return toTask(row);
 }
@@ -256,8 +265,13 @@ export async function updateTask(
         ...(patch.status !== undefined && { status: patch.status }),
         ...(patch.priority !== undefined && { priority: patch.priority }),
         ...(patch.due !== undefined && { due: patch.due }),
-        ...(patch.assigneeId !== undefined && { assigneeId: patch.assigneeId }),
         ...(patch.createdBy !== undefined && { createdBy: patch.createdBy }),
+        ...(patch.assignees !== undefined && {
+            taskAssignees: {
+                deleteMany: {},
+                create: patch.assignees.map(({ id }) => ({ userId: id })),
+            },
+        }),
     };
 
     try {
@@ -267,7 +281,11 @@ export async function updateTask(
         });
         if (!existing) return undefined;
 
-        const row = await prisma.task.update({ where: { id }, data });
+        const row = await prisma.task.update({
+            where: { id },
+            data,
+            include: taskInclude,
+        });
         return toTask(row);
     } catch (error) {
         if (isNotFound(error)) return undefined;

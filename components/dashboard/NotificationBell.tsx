@@ -1,25 +1,54 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter, usePathname } from "next/navigation";
-import { useEffect } from "react";
+import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
+import { getUnreadNotificationCountAction } from "@/app/(dashboard)/notifications/actions";
 
-const POLL_INTERVAL_MS = 30_000;
+const POLL_INTERVAL_MS = 5_000;
 
 export default function NotificationBell({
   unreadCount,
 }: {
   unreadCount: number;
 }) {
-  const router = useRouter();
   const pathname = usePathname();
+  const [count, setCount] = useState(unreadCount);
 
-  // Simple polling: revalidate the server tree so the badge stays fresh.
-  // Deliberately NOT a WebSocket — realtime is deferred to chat (M4).
   useEffect(() => {
-    const id = setInterval(() => router.refresh(), POLL_INTERVAL_MS);
-    return () => clearInterval(id);
-  }, [router]);
+    let active = true;
+    let requestInFlight = false;
+
+    async function refreshCount() {
+      if (!active || requestInFlight) return;
+      requestInFlight = true;
+
+      try {
+        const latestCount = await getUnreadNotificationCountAction();
+        if (active) setCount(latestCount);
+      } catch {
+        // Keep the last known count when temporarily offline.
+      } finally {
+        requestInFlight = false;
+      }
+    }
+
+    function refreshWhenVisible() {
+      if (document.visibilityState === "visible") void refreshCount();
+    }
+
+    const id = window.setInterval(refreshWhenVisible, POLL_INTERVAL_MS);
+    window.addEventListener("focus", refreshWhenVisible);
+    document.addEventListener("visibilitychange", refreshWhenVisible);
+    void refreshCount();
+
+    return () => {
+      active = false;
+      window.clearInterval(id);
+      window.removeEventListener("focus", refreshWhenVisible);
+      document.removeEventListener("visibilitychange", refreshWhenVisible);
+    };
+  }, []);
 
   const isActive = pathname === "/notifications";
 
@@ -39,12 +68,12 @@ export default function NotificationBell({
         <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
       </svg>
 
-      {unreadCount > 0 && (
+      {count > 0 && (
         <span
           className="absolute -right-0.5 -top-0.5 flex size-5 items-center justify-center rounded-full bg-danger text-[10px] font-bold text-white shadow-(--clay-drop)"
-          aria-label={`${unreadCount} unread notifications`}
+          aria-label={`${count} unread notifications`}
         >
-          {unreadCount > 99 ? "99+" : unreadCount}
+          {count > 99 ? "99+" : count}
         </span>
       )}
     </>
@@ -53,17 +82,15 @@ export default function NotificationBell({
   return (
     <Link
       href="/notifications"
-      aria-label={`Notifications${
-        unreadCount > 0 ? ` (${unreadCount} unread)` : ""
-      }`}
+      aria-label={`Notifications${count > 0 ? ` (${count} unread)` : ""
+        }`}
       className={`
         relative flex size-9 shrink-0 items-center justify-center
         rounded-xl border
         transition hover:-translate-y-0.5
-        ${
-          isActive
-            ? "border-accent bg-accent-soft text-accent dark:text-purple-300"
-            : "border-glass-border bg-glass-bg text-text-secondary shadow-(--clay-inset-low) backdrop-blur-xl hover:bg-accent-soft hover:text-accent dark:text-slate-300 dark:hover:text-purple-300"
+        ${isActive
+          ? "border-accent bg-accent-soft text-accent dark:text-purple-300"
+          : "border-glass-border bg-glass-bg text-text-secondary shadow-(--clay-inset-low) backdrop-blur-xl hover:bg-accent-soft hover:text-accent dark:text-slate-300 dark:hover:text-purple-300"
         }
       `}
     >

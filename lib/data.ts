@@ -40,7 +40,7 @@ export type Task = {
   status: TaskStatus;
   priority: TaskPriority;
   due: string;
-  assigneeId?: string;
+  assignees: { id: string; name: string; image: string | null }[];
   createdBy?: string;
 };
 

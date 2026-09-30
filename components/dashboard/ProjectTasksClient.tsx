@@ -7,8 +7,14 @@ import TaskGrid from "./TaskGrid";
 
 export default function ProjectTasksClient({
   projectId,
+  canCreateTasks,
+  canEditTasks,
+  canDeleteTasks,
 }: {
   projectId: string;
+  canCreateTasks: boolean;
+  canEditTasks: boolean;
+  canDeleteTasks: boolean;
 }) {
   const project = useDataStore((state) =>
     state.projects.find((item) => item.id === projectId)
@@ -29,12 +35,12 @@ export default function ProjectTasksClient({
           This project may have been deleted.
         </p>
 
-        <Link
+        {canCreateTasks ? <Link
           href="/projects"
           className="mt-4 inline-block text-sm font-semibold text-accent hover:underline"
         >
           ← Back to projects
-        </Link>
+        </Link> : null}
       </div>
     );
   }
@@ -71,7 +77,13 @@ export default function ProjectTasksClient({
       </div>
 
       <div className="mt-8">
-        <TaskGrid serverTasks={tasks} projectId={projectId} showProjectName />
+        <TaskGrid
+          serverTasks={tasks}
+          projectId={projectId}
+          showProjectName
+          canEditTasks={canEditTasks}
+          canDeleteTasks={canDeleteTasks}
+        />
       </div>
     </>
   );

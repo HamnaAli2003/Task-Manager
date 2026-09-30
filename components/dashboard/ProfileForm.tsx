@@ -3,7 +3,7 @@
 import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { updateProfile } from "@/app/(dashboard)/profile/actions";
-import { deleteAccount } from "@/app/(auth)/login/action";
+import { deleteAccount, logout } from "@/app/(auth)/login/action";
 import { saveUser } from "./useUser";
 import ConfirmDeleteModal from "./ConfirmDeleteModal";
 
@@ -33,6 +33,7 @@ export default function ProfileForm({
   const [pending, startTransition] = useTransition();
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deletePending, startDelete] = useTransition();
+  const [logoutPending, startLogout] = useTransition();
 
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -106,6 +107,13 @@ export default function ProfileForm({
         setError(result.error);
         return;
       }
+      router.push("/login");
+    });
+  }
+
+  function onLogout() {
+    startLogout(async () => {
+      await logout();
       router.push("/login");
     });
   }
@@ -306,6 +314,37 @@ export default function ProfileForm({
         </div>
       </div>
 
+      <section className="flex flex-wrap items-center justify-between gap-4 rounded-3xl border border-clay-edge bg-clay-bg p-6 shadow-(--clay-card)">
+        <div>
+          <h2 className="text-base font-bold text-text">Sign out</h2>
+          <p className="mt-1 text-sm text-text-secondary">
+            End your current session on this device.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={onLogout}
+          disabled={logoutPending}
+          className="inline-flex items-center gap-2 rounded-xl border border-border-light bg-clay-bg px-4 py-2.5 text-sm font-semibold text-text-secondary shadow-sm transition hover:border-danger/50 hover:text-danger disabled:cursor-wait disabled:opacity-60"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            className="size-4 shrink-0"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+            <polyline points="16 17 21 12 16 7" />
+            <line x1="21" y1="12" x2="9" y2="12" />
+          </svg>
+          {logoutPending ? "Signing out…" : "Log out"}
+        </button>
+      </section>
+
       {/* Danger zone */}
       <div
         className="
@@ -329,7 +368,7 @@ export default function ProfileForm({
               border border-danger bg-clay-bg px-6 py-3
               text-sm font-bold text-danger shadow-(--clay-drop)
               transition hover:-translate-y-0.5 hover:bg-danger
-              hover:text-black dark:hover:text-white disabled:cursor-wait disabled:opacity-60
+              hover:text-danger dark:hover:text-danger disabled:cursor-wait disabled:opacity-60
             "
           >
             Delete account

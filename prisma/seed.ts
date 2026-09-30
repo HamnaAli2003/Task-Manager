@@ -55,7 +55,6 @@ const TASKS = [
     status: "done",
     priority: "medium",
     due: isoDate(2),
-    assigneeId: "u3",
     createdBy: "u1",
   },
   {
@@ -66,7 +65,6 @@ const TASKS = [
     status: "in-progress",
     priority: "high",
     due: isoDate(3),
-    assigneeId: "u4",
     createdBy: "u2",
   },
   {
@@ -77,7 +75,6 @@ const TASKS = [
     status: "in-progress",
     priority: "urgent",
     due: isoDate(1),
-    assigneeId: "u1",
     createdBy: "u3",
   },
   {
@@ -88,7 +85,6 @@ const TASKS = [
     status: "todo",
     priority: "high",
     due: isoDate(5),
-    assigneeId: "u2",
     createdBy: "u4",
   },
   {
@@ -99,7 +95,6 @@ const TASKS = [
     status: "review",
     priority: "low",
     due: isoDate(4),
-    assigneeId: "u4",
     createdBy: "u5",
   },
   {
@@ -110,7 +105,6 @@ const TASKS = [
     status: "todo",
     priority: "medium",
     due: isoDate(7),
-    assigneeId: "u5",
     createdBy: "u1",
   },
   {
@@ -121,7 +115,6 @@ const TASKS = [
     status: "in-progress",
     priority: "medium",
     due: isoDate(6),
-    assigneeId: "u1",
     createdBy: "u2",
   },
   {
@@ -132,7 +125,6 @@ const TASKS = [
     status: "todo",
     priority: "low",
     due: isoDate(9),
-    assigneeId: "u2",
     createdBy: "u3",
   },
 ];

@@ -21,9 +21,15 @@ model User {
   sessions      Session[]
   createdAt     DateTime  @default(now())
 
+  // Project access (M4)
+  projectAccess ProjectAccess[]
+  taskAssignments TaskAssignee[]
+
+
   // Workspaces (M2)
   ownedWorkspaces Workspace[]       @relation("WorkspaceOwner")
   memberships     WorkspaceMember[]
+  activityDismissals ActivityEventDismissal[]
 
   // Notifications (M3): received + caused by this user
   notifications        Notification[]
@@ -93,20 +99,21 @@ model Workspace {
   // One owner cannot have two workspaces with the same name (case/space-insensitive)
   @@unique([ownerId, normalizedName])
 }
-
-
 model WorkspaceMember {
   id          String        @id @default(cuid())
   workspaceId String
   userId      String
   role        WorkspaceRole @default(MEMBER)
   joinedAt    DateTime      @default(now())
+  canCreateProject Boolean @default(false) // owner grants project-create right
+  canCreateTask    Boolean @default(false) // owner grants task-create right
 
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([workspaceId, userId]) // one membership per user per workspace
 }
+
 
 enum WorkspaceRole {
   OWNER
@@ -116,6 +123,16 @@ enum WorkspaceRole {
 enum WorkspaceType {
   PERSONAL
   TEAM
+}
+
+enum ProjectAccessMode {
+  ALL_MEMBERS
+  RESTRICTED
+}
+
+enum ProjectPermission {
+  VIEW
+  EDIT
 }
 
 // ---- App models ----
@@ -130,6 +147,8 @@ model Project {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
   tasks       Task[]
+  accessMode  ProjectAccessMode @default(ALL_MEMBERS)
+  access      ProjectAccess[]
 }
 
 model Task {
@@ -140,7 +159,7 @@ model Task {
   status      String   @default("todo")
   priority    String   @default("medium")
   due         String   // "YYYY-MM-DD"
-  assigneeId  String?
+   taskAssignees TaskAssignee[]
   createdBy   String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -199,21 +218,66 @@ model Invite {
 
   @@index([workspaceId])
 }
+
 // ---- Workspace activity history (M3) ----
-// Workspace-scope ka permanent log: kis ne kya kiya. Snapshot fields
-// (actorName/targetName) isliye hain ke user delete ho jaye to bhi
-// history readable rahe. Workspace delete hone pe history bhi jati hai.
+// A permanent workspace-scoped log of who did what. Snapshot fields
+// (actorName/targetName) keep history readable even if a user is deleted.
+// History is removed only when the workspace itself is deleted.
 model ActivityEvent {
   id          String   @id @default(cuid())
   workspaceId String
   category    String   // "MEMBER" | "PROJECT" | "TASK"
   type        String   // INVITE_SENT / MEMBER_JOINED / MEMBER_REMOVED / ...
-  actorName   String?  // snapshot — kis ne kiya
-  targetName  String?  // snapshot — kisko affect kiya
+  actorName   String?  // snapshot — who performed the action
+  targetName  String?  // snapshot — who/what was affected
   message     String
   createdAt   DateTime @default(now())
 
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  dismissals ActivityEventDismissal[]
 
   @@index([workspaceId, category, createdAt])
+}
+
+model ActivityEventDismissal {
+  activityEventId String
+  userId          String
+  dismissedAt     DateTime @default(now())
+
+  activityEvent ActivityEvent @relation(fields: [activityEventId], references: [id], onDelete: Cascade)
+  user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([activityEventId, userId])
+  @@index([userId])
+}
+
+// ---- Project access (M4) ----
+// RESTRICTED projects: only listed members get access (VIEW or EDIT).
+// ALL_MEMBERS projects: this table is ignored (every member has access by default).
+// The workspace owner always keeps full access — enforced by the guard
+// (lib/access.server.ts), never by the UI alone.
+model ProjectAccess {
+  projectId  String
+  userId     String
+  permission ProjectPermission @default(VIEW)
+  canCreateTasks Boolean           @default(false)
+  canDeleteTasks Boolean           @default(false)
+  canEditProject Boolean           @default(false)
+  canDeleteProject Boolean         @default(false)
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([projectId, userId])
+}
+// ---- Task assignees: multiple members per task ----
+model TaskAssignee {
+  taskId     String
+  userId     String
+  assignedAt DateTime @default(now())
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([taskId, userId])
 }

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import ClaySelect from "./ClaySelect";
+import AssigneeSelect from "./AssigneeSelect";
 import {
   PRIORITY_LABELS,
   STATUS_LABELS,
@@ -19,7 +20,9 @@ import {
 } from "@/lib/schemas";
 
 type TaskFormProps = {
+  projectId?: string; // assignee picker ke liye — na ho to section hidden
   defaultValues?: Partial<TaskFormInput>;
+  canChangeStatus?: boolean;
   action: (values: TaskFormOutput) => Promise<TaskActionResult>;
   redirectTo: string;
   submitLabel: string;
@@ -38,7 +41,9 @@ const fieldClass = (hasError: boolean) =>
     : inputClass;
 
 export default function TaskForm({
+  projectId,
   defaultValues,
+  canChangeStatus = true,
   action,
   redirectTo,
   submitLabel,
@@ -59,6 +64,7 @@ export default function TaskForm({
       status: "todo",
       priority: "medium",
       due: "",
+      assigneeIds: [],
       ...defaultValues,
     },
   });
@@ -137,22 +143,31 @@ export default function TaskForm({
             Status
           </label>
 
-          <Controller
-            control={control}
-            name="status"
-            render={({ field }) => (
-              <ClaySelect
-                value={field.value}
-                onChange={(value) => field.onChange(value)}
-                options={TASK_STATUSES.map((value) => ({
-                  value,
-                  label: STATUS_LABELS[value],
-                }))}
-                ariaLabel="Status"
-                error={Boolean(errors.status)}
-              />
-            )}
-          />
+          {canChangeStatus ? (
+            <Controller
+              control={control}
+              name="status"
+              render={({ field }) => (
+                <ClaySelect
+                  value={field.value}
+                  onChange={(value) => field.onChange(value)}
+                  options={TASK_STATUSES.map((value) => ({
+                    value,
+                    label: STATUS_LABELS[value],
+                  }))}
+                  ariaLabel="Status"
+                  error={Boolean(errors.status)}
+                />
+              )}
+            />
+          ) : (
+            <>
+              <input type="hidden" {...register("status")} />
+              <p className="rounded-xl border border-clay-edge bg-clay-bg px-4 py-2.5 text-sm text-text-secondary">
+                {STATUS_LABELS[defaultValues?.status ?? "todo"]} (assignee only)
+              </p>
+            </>
+          )}
         </div>
 
         <div>
@@ -201,6 +216,22 @@ export default function TaskForm({
           <p className="mt-1.5 text-xs text-danger">{errors.due.message}</p>
         )}
       </div>
+
+      {/* Multi-assignee picker (sirf jab projectId available ho) */}
+      {projectId && (
+        <Controller
+          control={control}
+          name="assigneeIds"
+          render={({ field }) => (
+            <AssigneeSelect
+              projectId={projectId}
+              value={field.value ?? []}
+              onChange={(ids) => field.onChange(ids)}
+              error={errors.assigneeIds?.message}
+            />
+          )}
+        />
+      )}
 
       {serverError && (
         <p

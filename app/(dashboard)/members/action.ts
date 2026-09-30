@@ -1,8 +1,8 @@
 "use server";
 
-// Invite creation + management (M3).
-// OWNER-only invite creation. The link carries an unguessable token;
-// accepting it happens in app/invite/[token]/actions.ts (File 6).
+// Invite creation + management (M3) + member removal (M4).
+// OWNER-only invite creation and member removal. The link carries an
+// unguessable token; accepting it happens in app/invite/[token]/actions.ts.
 import { randomBytes } from "crypto";
 import { headers } from "next/headers";
 import type { Prisma } from "@prisma/client";
@@ -11,7 +11,6 @@ import { requireUser } from "@/lib/workspace.server";
 import { emitInviteSentEvent } from "@/lib/notifications.server";
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
-
 
 // Links are valid for 7 days; tokens are 24 random bytes (~192 bits).
 const INVITE_TTL_DAYS = 7;
@@ -138,6 +137,18 @@ export async function createInviteAction(
     },
   });
 
+  // MEMBER history: invite sent (snapshot names so history survives).
+  await prisma.activityEvent.create({
+    data: {
+      workspaceId,
+      category: "MEMBER",
+      type: "INVITE_SENT",
+      actorName: user.name ?? "Someone",
+      targetName: boundEmail ?? "Anyone with the link",
+      message: `${user.name ?? "Someone"} invited ${boundEmail ?? "a new member"}.`,
+    },
+  });
+
   // INVITE_SENT notification — only when the email belongs to a real user.
   if (boundEmail) {
     const recipient = await prisma.user.findUnique({
@@ -153,6 +164,7 @@ export async function createInviteAction(
       });
     }
   }
+
   const inviteLink = await buildInviteLink(invite.token);
   return { ok: true, inviteLink };
 }
@@ -235,6 +247,7 @@ export async function revokeInviteAction(
   revalidatePath("/members");
   return { ok: true };
 }
+
 /**
  * Removes a member from the workspace. OWNER-only.
  *
@@ -290,14 +303,112 @@ export async function removeMemberAction(
     return { ok: false, error: "This user is not a member of this workspace." };
   }
 
-  // Snapshot the name before deleting the membership row.
+  // Name snapshot BEFORE deletion (history readability) — read ONCE.
   const targetUser = await prisma.user.findUnique({
     where: { id: memberId },
     select: { name: true, email: true },
   });
+  const targetName =
+    targetUser?.name ?? targetUser?.email ?? "A member";
 
-  await prisma.workspaceMember.delete({ where: { id: membership.id } });
+  // Membership + access cleanup + history atomically: access rows deleted,
+  // tasks unassigned (preserved), membership gone, MEMBER_REMOVED logged —
+  // all or nothing.
+  await prisma.$transaction([
+    prisma.workspaceMember.delete({ where: { id: membership.id } }),
+    prisma.projectAccess.deleteMany({
+      where: { userId: memberId, project: { workspaceId } },
+    }),
+    prisma.taskAssignee.deleteMany({
+      where: { userId: memberId, task: { project: { workspaceId } } },
+    }),
+    prisma.activityEvent.create({
+      data: {
+        workspaceId,
+        category: "MEMBER",
+        type: "MEMBER_REMOVED",
+        actorName: user.name ?? "Someone",
+        targetName,
+        message: `${user.name ?? "Someone"} removed ${targetName}.`,
+      },
+    }),
+  ]);
 
+  revalidatePath("/members");
   revalidatePath("/", "layout");
+  return { ok: true };
+}
+/**
+ * Owner grants/revokes a member's task right ANY TIME — instant effect
+ * (task action live membership flag).
+ * OWNER-only. TEAM-only. Owner cannot revoke their own task right (they always have it).
+ */
+export async function setMemberPermissionsAction(
+  workspaceId: string,
+  memberId: string,
+  canCreateTask: boolean
+): Promise<{ ok: boolean; error?: string }> {
+  const user = await requireUser();
+
+  const workspace = await prisma.workspace.findUnique({
+    where: { id: workspaceId },
+    select: { ownerId: true, type: true },
+  });
+  if (!workspace) {
+    return { ok: false, error: "Workspace not found." };
+  }
+  if (workspace.type !== "TEAM") {
+    return { ok: false, error: "Permissions apply to team workspaces only." };
+  }
+
+  const caller = await prisma.workspaceMember.findUnique({
+    where: { workspaceId_userId: { workspaceId, userId: user.id } },
+    select: { role: true },
+  });
+  if (!caller || caller.role !== "OWNER" || workspace.ownerId !== user.id) {
+    return {
+      ok: false,
+      error: "Only the workspace owner can change member permissions.",
+    };
+  }
+
+  if (memberId === workspace.ownerId) {
+    return { ok: false, error: "The owner's permissions cannot be changed." };
+  }
+
+  const target = await prisma.workspaceMember.findUnique({
+    where: { workspaceId_userId: { workspaceId, userId: memberId } },
+    select: { id: true },
+  });
+  if (!target) {
+    return { ok: false, error: "This user is not a member of this workspace." };
+  }
+
+  await prisma.workspaceMember.update({
+    where: { id: target.id },
+    data: { canCreateTask },
+  });
+
+  const targetUser = await prisma.user.findUnique({
+    where: { id: memberId },
+    select: { name: true },
+  });
+  const targetName = targetUser?.name ?? "a member";
+  const actorName = user.name ?? "Someone";
+
+  await prisma.activityEvent.create({
+    data: {
+      workspaceId,
+      category: "MEMBER",
+      type: "PERMISSIONS_UPDATED",
+      actorName,
+      targetName,
+      message: canCreateTask
+        ? `${actorName} granted ${targetName} task rights (create, edit, delete).`
+        : `${actorName} revoked task permissions from ${targetName}.`,
+    },
+  });
+
+  revalidatePath("/members");
   return { ok: true };
 }

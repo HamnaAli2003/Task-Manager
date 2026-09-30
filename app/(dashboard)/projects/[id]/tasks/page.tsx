@@ -1,6 +1,9 @@
 import { Suspense } from "react";
 import Link from "next/link";
 import ProjectTasksClient from "@/components/dashboard/ProjectTasksClient";
+import { notFound } from "next/navigation";
+import { requireUser } from "@/lib/workspace.server";
+import { getProjectAccess } from "@/lib/access.server";
 
 type ProjectTasksPageProps = {
   params: Promise<{ id: string }>;
@@ -10,6 +13,9 @@ export default async function ProjectTasksPage({
   params,
 }: ProjectTasksPageProps) {
   const { id } = await params;
+  const user = await requireUser();
+  const access = await getProjectAccess(user.id, id);
+  if (!access.canView) notFound();
 
   return (
     <main className="min-h-screen">
@@ -26,7 +32,12 @@ export default async function ProjectTasksPage({
         </Link>
 
         <Suspense fallback={null}>
-          <ProjectTasksClient projectId={id} />
+          <ProjectTasksClient
+            projectId={id}
+            canCreateTasks={access.canCreateTasks}
+            canEditTasks={access.canEditTasks}
+            canDeleteTasks={access.canDeleteTasks}
+          />
         </Suspense>
       </div>
     </main>

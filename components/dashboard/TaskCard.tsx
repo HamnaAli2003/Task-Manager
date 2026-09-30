@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { Task } from "@/lib/data";
-import { TEAM_MEMBERS_BY_ID } from "@/lib/data";
 import type { TaskActionResult } from "@/lib/schemas";
+import type { TaskStatus } from "@/lib/taskOptions";
 import {
   PRIORITY_ACCENT,
   PRIORITY_BADGE,
@@ -9,8 +9,60 @@ import {
   STATUS_BADGE,
   STATUS_DOT,
   STATUS_LABELS,
+  TASK_STATUSES,
+  isTaskStatus,
 } from "@/lib/taskOptions";
+import { markTaskStatusAction } from "@/app/(dashboard)/projects/[id]/tasks/actions";
+import { useUser } from "./useUser";
+import { useDataStore } from "@/lib/dataStore";
+import { useTransition } from "react";
+import ClaySelect from "./ClaySelect";
 import DeleteTaskButton from "./DeleteTaskButton";
+import AssigneeAvatars from "./AssigneeAvatars";
+
+function AssigneeStatusSelect({
+  taskId,
+  projectId,
+  status,
+}: {
+  taskId: string;
+  projectId: string;
+  status: TaskStatus;
+}) {
+  const [pending, startTransition] = useTransition();
+
+  function updateStatus(value: string) {
+    if (pending || !isTaskStatus(value) || value === status) return;
+    const nextStatus = value;
+
+    startTransition(async () => {
+      const result = await markTaskStatusAction(projectId, taskId, nextStatus);
+      if (!result.ok) {
+        window.alert(result.error ?? "Could not update task status.");
+        return;
+      }
+
+      useDataStore.setState((state) => ({
+        tasks: state.tasks.map((task) =>
+          task.id === taskId ? { ...task, status: nextStatus } : task,
+        ),
+      }));
+    });
+  }
+
+  return (
+    <ClaySelect
+      value={status}
+      onChange={updateStatus}
+      options={TASK_STATUSES.map((value) => ({
+        value,
+        label: STATUS_LABELS[value],
+      }))}
+      ariaLabel="Update assigned task status"
+      className={pending ? "min-w-32 opacity-60" : "min-w-32"}
+    />
+  );
+}
 
 function formatDue(date: string): string {
   const [year, month, day] = date.split("-").map(Number);
@@ -31,16 +83,20 @@ type TaskCardProps = {
   task: Task;
   projectName?: string;
   deleteAction?: (taskId: string) => Promise<TaskActionResult>;
+  canEditTask?: boolean;
+  canDeleteTask?: boolean;
 };
 
 export default function TaskCard({
   task,
   projectName,
   deleteAction,
+  canEditTask = true,
+  canDeleteTask = true,
 }: TaskCardProps) {
-  const assignee = task.assigneeId
-    ? TEAM_MEMBERS_BY_ID.get(task.assigneeId)
-    : undefined;
+  const assignee = task.assignees[0];
+  const user = useUser();
+  const canUpdateStatus = task.assignees.some((item) => item.id === user.id);
 
   return (
     <article
@@ -58,9 +114,17 @@ export default function TaskCard({
             </h3>
 
             <div className="mt-3 flex flex-wrap items-center gap-1.5">
-              <span className={`rounded-full px-2.5 py-1 text-[10px] font-semibold ${STATUS_BADGE[task.status]}`}>
-                {STATUS_LABELS[task.status]}
-              </span>
+              {canUpdateStatus ? (
+                <AssigneeStatusSelect
+                  taskId={task.id}
+                  projectId={task.projectId}
+                  status={task.status}
+                />
+              ) : (
+                <span className={`rounded-full px-2.5 py-1 text-[10px] font-semibold ${STATUS_BADGE[task.status]}`}>
+                  {STATUS_LABELS[task.status]}
+                </span>
+              )}
 
               <span className={`rounded-full px-2.5 py-1 text-[10px] font-semibold ${PRIORITY_BADGE[task.priority]}`}>
                 {PRIORITY_LABELS[task.priority]}
@@ -78,14 +142,12 @@ export default function TaskCard({
             {assignee && (
               <>
                 <span className="inline-flex items-center gap-1.5 align-middle">
-                  <span
-                    title={`${assignee.name} · ${assignee.role}`}
-                    className={`inline-flex size-5 items-center justify-center rounded-full ${assignee.color} text-[8px] font-bold text-white`}
-                  >
-                    {assignee.initials}
+                  <AssigneeAvatars assignees={task.assignees} />
+                  <span>
+                    {task.assignees.length === 1
+                      ? assignee.name.split(" ")[0]
+                      : `${task.assignees.length} assignees`}
                   </span>
-
-                  <span>{assignee.name.split(" ")[0]}</span>
                 </span>
 
                 {projectName && (
@@ -125,32 +187,34 @@ export default function TaskCard({
           </div>
 
           <div className="flex shrink-0 items-center gap-2">
-            <Link
-              href={`/projects/${task.projectId}/tasks/${task.id}/edit`}
-              aria-label={`Edit ${task.title}`}
-              title={`Edit ${task.title}`}
-              className="
+            {canEditTask ? (
+              <Link
+                href={`/projects/${task.projectId}/tasks/${task.id}/edit`}
+                aria-label={`Edit ${task.title}`}
+                title={`Edit ${task.title}`}
+                className="
                   inline-flex size-7 items-center justify-center
                   rounded-md border border-clay-edge bg-clay-bg
                   text-accent shadow-sm transition
                   hover:bg-accent-soft hover:text-accent-hover
                 "
-            >
-              <svg
-                viewBox="0 0 24 24"
-                className="size-4"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                aria-hidden="true"
               >
-                <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
-              </svg>
-            </Link>
+                <svg
+                  viewBox="0 0 24 24"
+                  className="size-4"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+                </svg>
+              </Link>
+            ) : null}
 
-            {deleteAction && (
+            {deleteAction && canDeleteTask && (
               <DeleteTaskButton
                 action={deleteAction}
                 taskId={task.id}

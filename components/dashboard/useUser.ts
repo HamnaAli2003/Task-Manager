@@ -3,6 +3,7 @@
 import { useSyncExternalStore } from "react";
 
 export type StoredUser = {
+  id?: string;
   name: string;
   email: string;
   image?: string | null;
@@ -11,6 +12,7 @@ export type StoredUser = {
 const STORAGE_KEY = "pmp-user";
 
 const DEFAULT_USER: StoredUser = {
+  id: undefined,
   name: "Guest",
   email: "",
   image: null,
@@ -44,5 +46,6 @@ export function useUser(): StoredUser {
 export function saveUser(user: StoredUser) {
   if (typeof window !== "undefined") {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(user));
+    window.dispatchEvent(new Event("storage"));
   }
 }

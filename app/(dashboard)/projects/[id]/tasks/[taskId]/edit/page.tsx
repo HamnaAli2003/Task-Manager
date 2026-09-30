@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import TaskForm from "@/components/dashboard/TaskForm";
 import { useDataStore } from "@/lib/dataStore";
+import { useUser } from "@/components/dashboard/useUser";
 
 export default function EditTaskPage() {
   const { id, taskId } = useParams<{ id: string; taskId: string }>();
@@ -14,6 +15,7 @@ export default function EditTaskPage() {
     state.tasks.find((item) => item.id === taskId)
   );
   const updateTask = useDataStore((state) => state.updateTask);
+  const user = useUser();
 
   if (!project || !task) {
     return (
@@ -74,12 +76,16 @@ export default function EditTaskPage() {
 
         <section className="mt-8 rounded-2xl border border-glass-border bg-glass-bg p-6 shadow-(--clay-deep) backdrop-blur-xl">
           <TaskForm
+            projectId={task.projectId}
+            canChangeStatus={task.assignees.some((assignee) => assignee.id === user.id)}
             defaultValues={{
               title: task.title,
               description: task.description,
               status: task.status,
               priority: task.priority,
               due: task.due,
+              // CRITICAL: warna edit save karte hi assignees hat jayenge
+              assigneeIds: task.assignees.map((a) => a.id),
             }}
             action={(values) => updateTask(task.id, values)}
             redirectTo={`/projects/${project.id}/tasks`}

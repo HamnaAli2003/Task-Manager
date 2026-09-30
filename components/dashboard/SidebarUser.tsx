@@ -1,16 +1,10 @@
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { logout } from "@/app/(auth)/login/action";
 import { useUser } from "./useUser";
 
 export default function SidebarUser() {
-    const router = useRouter();
     const user = useUser();
-
-    const [busy, setBusy] = useState(false);
 
     const initials =
         user.name
@@ -21,14 +15,8 @@ export default function SidebarUser() {
             .slice(0, 2)
             .toUpperCase() || "G";
 
-    const handleLogout = async () => {
-        setBusy(true);
-        await logout();
-        router.push("/login");
-    };
-
     return (
-        <div className="space-y-3">
+        <div>
             <Link
                 href="/profile"
                 className="
@@ -65,44 +53,6 @@ export default function SidebarUser() {
                 </div>
             </Link>
 
-            <button
-                type="button"
-                onClick={handleLogout}
-                disabled={busy}
-                aria-label="Log out"
-                title="Log out"
-                className="
-                  flex w-full items-center justify-center gap-2
-                  rounded-2xl
-                  border border-clay-edge
-                  bg-clay-bg
-                  px-3 py-2.5
-                  text-sm font-semibold
-                  text-text-secondary
-                  shadow-(--clay-drop)
-                  transition
-                  hover:-translate-y-0.5
-                  hover:text-danger
-                  dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:text-danger
-                "
-            >
-                <svg
-                    viewBox="0 0 24 24"
-                    className="size-4 shrink-0"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    aria-hidden="true"
-                >
-                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-                    <polyline points="16 17 21 12 16 7" />
-                    <line x1="21" y1="12" x2="9" y2="12" />
-                </svg>
-
-                {busy ? "Logging out..." : "Log out"}
-            </button>
         </div>
     );
 }

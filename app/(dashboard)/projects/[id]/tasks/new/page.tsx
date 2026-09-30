@@ -71,6 +71,7 @@ export default function NewProjectTaskPage() {
 
         <section className="mt-8 rounded-2xl border border-glass-border bg-glass-bg p-6 shadow-(--clay-deep) backdrop-blur-xl">
           <TaskForm
+            projectId={project.id}
             action={(values) => addTask(project.id, values)}
             redirectTo={`/projects/${project.id}/tasks`}
             submitLabel="Create task"

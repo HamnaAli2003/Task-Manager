@@ -1,14 +1,33 @@
 import { Suspense } from "react";
 import Link from "next/link";
 import TaskGrid from "@/components/dashboard/TaskGrid";
-import { getAllTasks } from "@/lib/data.server";
-import { getActiveWorkspace } from "@/lib/workspace.server";
+import { getAllTasks, getProjects } from "@/lib/data.server";
+import { getActiveWorkspace, requireUser } from "@/lib/workspace.server";
+import { getProjectAccess } from "@/lib/access.server";
 
 export const revalidate = 30;
 
 export default async function TasksPage() {
+  const user = await requireUser();
   const workspace = await getActiveWorkspace();
-  const tasks = await getAllTasks(workspace.id);
+  const [projects, allTasks] = await Promise.all([
+    getProjects(workspace.id),
+    getAllTasks(workspace.id),
+  ]);
+  const projectIds = projects.map((project) => project.id);
+  const accessEntries = await Promise.all(
+    projectIds.map(async (projectId) => [
+      projectId,
+      await getProjectAccess(user.id, projectId),
+    ] as const),
+  );
+  const accessByProjectId = Object.fromEntries(accessEntries);
+  const tasks = allTasks.filter(
+    (task) => accessByProjectId[task.projectId]?.canView,
+  );
+  const canCreateTasks = Object.values(accessByProjectId).some(
+    (access) => access.canCreateTasks,
+  );
 
   return (
     <main className="min-h-screen">
@@ -29,7 +48,7 @@ export default async function TasksPage() {
             </p>
           </div>
 
-          <Link
+          {canCreateTasks ? <Link
             href="/tasks/new"
             className="
               inline-flex w-fit items-center gap-2
@@ -39,11 +58,15 @@ export default async function TasksPage() {
           >
             <span className="text-lg leading-none">+</span>
             New Task
-          </Link>
+          </Link> : null}
         </div>
 
         <Suspense fallback={null}>
-          <TaskGrid serverTasks={tasks} showProjectName />
+          <TaskGrid
+            serverTasks={tasks}
+            showProjectName
+            accessByProjectId={accessByProjectId}
+          />
         </Suspense>
       </div>
     </main>

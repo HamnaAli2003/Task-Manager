@@ -2,6 +2,7 @@
 // invite form, and MEMBER-category activity history (added/removed log).
 import InviteForm from "@/components/dashboard/InviteForm";
 import MembersList from "@/components/dashboard/MembersList";
+import ActivityDeleteButton from "@/components/dashboard/ActivityDeleteButton";
 import { requireUser, getActiveWorkspace } from "@/lib/workspace.server";
 import { listMemberActivity } from "@/lib/activity.server";
 import {
@@ -45,12 +46,9 @@ export default async function MembersPage() {
   const hasOwnerPanels = isOwner && workspace.type === "TEAM";
 
   let pendingInvites: Awaited<ReturnType<typeof listWorkspaceInvites>> = [];
-  let history: Awaited<ReturnType<typeof listMemberActivity>> = [];
+  const history = await listMemberActivity(workspace.id, user.id);
   if (isOwner) {
-    [pendingInvites, history] = await Promise.all([
-      listWorkspaceInvites(workspace.id),
-      listMemberActivity(workspace.id),
-    ]);
+    pendingInvites = await listWorkspaceInvites(workspace.id);
   }
 
   return (
@@ -189,44 +187,46 @@ export default async function MembersPage() {
           )}
         </div>
 
-        {isOwner && (
-          <section className="mt-6 rounded-[30px] border border-clay-edge bg-clay-bg p-5 shadow-(--clay-card)">
-            <h2 className="mb-4 text-base font-bold text-text">
-              Member history
-            </h2>
+        <section className="mt-6 rounded-[30px] border border-clay-edge bg-clay-bg p-5 shadow-(--clay-card)">
+          <h2 className="mb-4 text-base font-bold text-text">
+            Member history
+          </h2>
 
-            {history.length === 0 ? (
-              <p className="rounded-2xl border border-dashed border-clay-edge p-4 text-center text-xs text-text-muted">
-                No history yet — invites, joins and removals will appear here.
-              </p>
-            ) : (
-              <ul className="space-y-3">
-                {history.map((event) => (
-                  <li
-                    key={event.id}
-                    className="flex items-center gap-3 rounded-2xl border border-clay-edge bg-field-bg p-3"
-                  >
-                    <span
-                      className={`
+          {history.length === 0 ? (
+            <p className="rounded-2xl border border-dashed border-clay-edge p-4 text-center text-xs text-text-muted">
+              No history yet — invites, joins and removals will appear here.
+            </p>
+          ) : (
+            <ul className="space-y-3">
+              {history.map((event) => (
+                <li
+                  key={event.id}
+                  className="flex items-center gap-3 rounded-2xl border border-clay-edge bg-field-bg p-3"
+                >
+                  <span
+                    className={`
                       shrink-0 rounded-full px-2.5 py-0.5 text-[11px] font-semibold
                       ${HISTORY_BADGE[event.type] ?? "bg-text-muted/10 text-text-muted"}
                     `}
-                    >
-                      {HISTORY_LABEL[event.type] ?? event.type}
-                    </span>
+                  >
+                    {HISTORY_LABEL[event.type] ?? event.type}
+                  </span>
 
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm text-text">{event.message}</p>
-                      <p className="text-[11px] text-text-muted">
-                        {formatDate(event.createdAt)}
-                      </p>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
-        )}
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm text-text">{event.message}</p>
+                    <p className="text-[11px] text-text-muted">
+                      {formatDate(event.createdAt)}
+                    </p>
+                  </div>
+                  <ActivityDeleteButton
+                    activityId={event.id}
+                    message={event.message}
+                  />
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
       </div>
     </main>
   );

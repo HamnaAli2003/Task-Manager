@@ -40,7 +40,6 @@ export default async function DashboardLayout({
       <UserSync user={session.user} />
 
       <DashboardSidebar
-        projects={projects}
         unreadCount={unreadCount}
         workspaces={workspaces.map((workspace) => ({
           id: workspace.id,

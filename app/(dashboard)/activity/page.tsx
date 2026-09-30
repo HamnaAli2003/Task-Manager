@@ -2,6 +2,7 @@
 // Server component: everything filters by the ACTIVE workspace.
 import { requireUser, getActiveWorkspace } from "@/lib/workspace.server";
 import { listWorkspaceActivity } from "@/lib/activity.server";
+import ActivityDeleteButton from "@/components/dashboard/ActivityDeleteButton";
 
 function initialsOf(name: string | null | undefined): string {
     return (name ?? "?")
@@ -49,7 +50,7 @@ const LABEL: Record<string, string> = {
 export default async function ActivityPage() {
     const user = await requireUser();
     const workspace = await getActiveWorkspace();
-    const activities = await listWorkspaceActivity(workspace.id);
+    const activities = await listWorkspaceActivity(workspace.id, 50, user.id);
 
     return (
         <main className="min-h-screen">
@@ -104,6 +105,11 @@ export default async function ActivityPage() {
                                                 </p>
                                             </div>
                                         </div>
+
+                                        <ActivityDeleteButton
+                                            activityId={activity.id}
+                                            message={activity.message}
+                                        />
                                     </article>
                                 ),
                             )}
