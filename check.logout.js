@@ -1,3 +1,4 @@
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 const fs = require('fs');
 const c1 = fs.readFileSync('D:\\\\project-management-portal\\\\components\\\\auth\\\\SignedInCard.tsx', 'utf8');
 const patterns = ['sign out', 'Sign out', 'SIGNOUT', 'signout', 'Logout', 'logout'];
@@ -17,4 +18,3 @@ for (const p of patterns) {
 }
 const signOutMatch2 = c2.match(/signOut\(\)/g);
 console.log('signOut() calls in SidebarUser:', signOutMatch2 ? signOutMatch2.length : 0);
-"
