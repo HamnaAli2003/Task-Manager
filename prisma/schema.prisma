@@ -163,6 +163,7 @@ model Task {
   createdBy   String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+  completedAt DateTime?
   project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   @@index([projectId])
@@ -264,6 +265,9 @@ model ProjectAccess {
   canDeleteTasks Boolean           @default(false)
   canEditProject Boolean           @default(false)
   canDeleteProject Boolean         @default(false)
+  // Lets a member rewrite task fields other than status. Without this grant
+  // an assignee is limited to moving the task through its workflow.
+  canEditTaskDetails Boolean      @default(false)
 
   project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
   user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)

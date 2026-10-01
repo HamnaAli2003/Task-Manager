@@ -11,6 +11,7 @@ export default function NewProjectTaskPage() {
     state.projects.find((item) => item.id === id)
   );
   const addTask = useDataStore((state) => state.addTask);
+  const activeWorkspaceType = useDataStore((state) => state.activeWorkspaceType);
 
   if (!project) {
     return (
@@ -72,6 +73,7 @@ export default function NewProjectTaskPage() {
         <section className="mt-8 rounded-2xl border border-glass-border bg-glass-bg p-6 shadow-(--clay-deep) backdrop-blur-xl">
           <TaskForm
             projectId={project.id}
+            requiresAssignee={activeWorkspaceType !== "PERSONAL"}
             action={(values) => addTask(project.id, values)}
             redirectTo={`/projects/${project.id}/tasks`}
             submitLabel="Create task"

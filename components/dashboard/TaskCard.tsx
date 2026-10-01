@@ -44,7 +44,9 @@ function AssigneeStatusSelect({
 
       useDataStore.setState((state) => ({
         tasks: state.tasks.map((task) =>
-          task.id === taskId ? { ...task, status: nextStatus } : task,
+          task.id === taskId
+            ? { ...task, status: nextStatus, updatedAt: new Date().toISOString() }
+            : task,
         ),
       }));
     });
@@ -96,7 +98,11 @@ export default function TaskCard({
 }: TaskCardProps) {
   const assignee = task.assignees[0];
   const user = useUser();
-  const canUpdateStatus = task.assignees.some((item) => item.id === user.id);
+  const workspaceType = useDataStore((state) => state.activeWorkspaceType);
+  const canUpdateStatus = task.assignees.some((item) => item.id === user.id) ||
+    (workspaceType === "PERSONAL" && task.createdBy === user.id);
+  // An assignee who cannot edit details still needs the editor to move status.
+  const canOpenEditor = canEditTask || canUpdateStatus;
 
   return (
     <article
@@ -187,11 +193,11 @@ export default function TaskCard({
           </div>
 
           <div className="flex shrink-0 items-center gap-2">
-            {canEditTask ? (
+            {canOpenEditor ? (
               <Link
                 href={`/projects/${task.projectId}/tasks/${task.id}/edit`}
-                aria-label={`Edit ${task.title}`}
-                title={`Edit ${task.title}`}
+                aria-label={`${canEditTask ? "Edit" : "Update status of"} ${task.title}`}
+                title={`${canEditTask ? "Edit" : "Update status of"} ${task.title}`}
                 className="
                   inline-flex size-7 items-center justify-center
                   rounded-md border border-clay-edge bg-clay-bg

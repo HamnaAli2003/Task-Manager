@@ -8,9 +8,11 @@ import ConfirmDeleteModal from "./ConfirmDeleteModal";
 export default function ActivityDeleteButton({
     activityId,
     message,
+    showSharedVisibility,
 }: {
     activityId: string;
     message: string;
+    showSharedVisibility: boolean;
 }) {
     const router = useRouter();
     const [open, setOpen] = useState(false);
@@ -73,7 +75,8 @@ export default function ActivityDeleteButton({
                 title="Hide activity?"
                 body={
                     <>
-                        This will hide this activity from your view. Other workspace members will still see it: {" "}
+                        This will hide this activity from your view.
+                        {showSharedVisibility && " Other workspace members will still see it: "}
                         <span className="font-semibold text-text">&quot;{message}&quot;</span>
                     </>
                 }

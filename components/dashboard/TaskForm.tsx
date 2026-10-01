@@ -23,6 +23,11 @@ type TaskFormProps = {
   projectId?: string; // assignee picker ke liye — na ho to section hidden
   defaultValues?: Partial<TaskFormInput>;
   canChangeStatus?: boolean;
+  /** title, description, priority, due — owner-granted on edit */
+  canEditDetails?: boolean;
+  /** the assignee list — never delegated off the owner */
+  canManageAssignees?: boolean;
+  requiresAssignee?: boolean;
   action: (values: TaskFormOutput) => Promise<TaskActionResult>;
   redirectTo: string;
   submitLabel: string;
@@ -40,16 +45,28 @@ const fieldClass = (hasError: boolean) =>
     ? `${inputClass} border-danger`
     : inputClass;
 
+const readOnlyClass = `
+  rounded-xl border border-clay-edge bg-clay-bg
+  px-4 py-2.5 text-sm text-text-secondary
+`;
+
 export default function TaskForm({
   projectId,
   defaultValues,
   canChangeStatus = true,
+  canEditDetails = true,
+  canManageAssignees = true,
+  requiresAssignee = true,
   action,
   redirectTo,
   submitLabel,
 }: TaskFormProps) {
   const router = useRouter();
   const [serverError, setServerError] = useState<string | null>(null);
+
+  // Only the owner picks assignees, so only the owner is held to the
+  // "at least one assignee" rule — an assignee would never see the picker.
+  const mustPickAssignee = requiresAssignee && canManageAssignees;
 
   const {
     register,
@@ -72,6 +89,11 @@ export default function TaskForm({
   async function onSubmit(values: TaskFormOutput) {
     setServerError(null);
 
+    if (mustPickAssignee && values.assigneeIds.length === 0) {
+      setServerError("Assign this task to at least one workspace member.");
+      return;
+    }
+
     const result = await action(values);
 
     if (result.ok) {
@@ -83,12 +105,21 @@ export default function TaskForm({
     setServerError(result.error ?? "Something went wrong. Please try again.");
   }
 
+  const statusOnly = !canEditDetails;
+
   return (
     <form
       onSubmit={handleSubmit(onSubmit)}
       className="space-y-5"
       noValidate
     >
+      {statusOnly && (
+        <p className="rounded-xl border border-clay-edge bg-clay-bg px-4 py-3 text-xs text-text-secondary">
+          You are assigned to this task, so you can change its status. Ask the
+          workspace owner for access to edit the rest.
+        </p>
+      )}
+
       <div>
         <label
           htmlFor="task-title"
@@ -97,17 +128,26 @@ export default function TaskForm({
           Title
         </label>
 
-        <input
-          id="task-title"
-          type="text"
-          placeholder="e.g. Implement search filters"
-          aria-invalid={errors.title ? "true" : undefined}
-          {...register("title")}
-          className={fieldClass(Boolean(errors.title))}
-        />
+        {canEditDetails ? (
+          <>
+            <input
+              id="task-title"
+              type="text"
+              placeholder="e.g. Implement search filters"
+              aria-invalid={errors.title ? "true" : undefined}
+              {...register("title")}
+              className={fieldClass(Boolean(errors.title))}
+            />
 
-        {errors.title && (
-          <p className="mt-1.5 text-xs text-danger">{errors.title.message}</p>
+            {errors.title && (
+              <p className="mt-1.5 text-xs text-danger">{errors.title.message}</p>
+            )}
+          </>
+        ) : (
+          <>
+            <input type="hidden" {...register("title")} />
+            <p className={readOnlyClass}>{defaultValues?.title}</p>
+          </>
         )}
       </div>
 
@@ -119,18 +159,29 @@ export default function TaskForm({
           Description
         </label>
 
-        <textarea
-          id="task-description"
-          rows={4}
-          placeholder="Optional details about the task…"
-          {...register("description")}
-          className={fieldClass(Boolean(errors.description))}
-        />
+        {canEditDetails ? (
+          <>
+            <textarea
+              id="task-description"
+              rows={4}
+              placeholder="Optional details about the task…"
+              {...register("description")}
+              className={fieldClass(Boolean(errors.description))}
+            />
 
-        {errors.description && (
-          <p className="mt-1.5 text-xs text-danger">
-            {errors.description.message}
-          </p>
+            {errors.description && (
+              <p className="mt-1.5 text-xs text-danger">
+                {errors.description.message}
+              </p>
+            )}
+          </>
+        ) : (
+          <>
+            <input type="hidden" {...register("description")} />
+            <p className={`${readOnlyClass} whitespace-pre-wrap`}>
+              {defaultValues?.description || "No description."}
+            </p>
+          </>
         )}
       </div>
 
@@ -163,8 +214,9 @@ export default function TaskForm({
           ) : (
             <>
               <input type="hidden" {...register("status")} />
-              <p className="rounded-xl border border-clay-edge bg-clay-bg px-4 py-2.5 text-sm text-text-secondary">
-                {STATUS_LABELS[defaultValues?.status ?? "todo"]} (assignee only)
+              <p className={readOnlyClass}>
+                {STATUS_LABELS[defaultValues?.status ?? "todo"]} — only an
+                assignee can change this
               </p>
             </>
           )}
@@ -178,22 +230,31 @@ export default function TaskForm({
             Priority
           </label>
 
-          <Controller
-            control={control}
-            name="priority"
-            render={({ field }) => (
-              <ClaySelect
-                value={field.value}
-                onChange={(value) => field.onChange(value)}
-                options={TASK_PRIORITIES.map((value) => ({
-                  value,
-                  label: PRIORITY_LABELS[value],
-                }))}
-                ariaLabel="Priority"
-                error={Boolean(errors.priority)}
-              />
-            )}
-          />
+          {canEditDetails ? (
+            <Controller
+              control={control}
+              name="priority"
+              render={({ field }) => (
+                <ClaySelect
+                  value={field.value}
+                  onChange={(value) => field.onChange(value)}
+                  options={TASK_PRIORITIES.map((value) => ({
+                    value,
+                    label: PRIORITY_LABELS[value],
+                  }))}
+                  ariaLabel="Priority"
+                  error={Boolean(errors.priority)}
+                />
+              )}
+            />
+          ) : (
+            <>
+              <input type="hidden" {...register("priority")} />
+              <p className={readOnlyClass}>
+                {PRIORITY_LABELS[defaultValues?.priority ?? "medium"]}
+              </p>
+            </>
+          )}
         </div>
       </div>
 
@@ -205,20 +266,30 @@ export default function TaskForm({
           Due date
         </label>
 
-        <input
-          id="task-due"
-          type="date"
-          {...register("due")}
-          className={fieldClass(Boolean(errors.due))}
-        />
+        {canEditDetails ? (
+          <input
+            id="task-due"
+            type="date"
+            {...register("due")}
+            className={fieldClass(Boolean(errors.due))}
+          />
+        ) : (
+          <>
+            <input type="hidden" {...register("due")} />
+            <p className={readOnlyClass}>{defaultValues?.due}</p>
+          </>
+        )}
 
         {errors.due && (
           <p className="mt-1.5 text-xs text-danger">{errors.due.message}</p>
         )}
       </div>
 
-      {/* Multi-assignee picker (sirf jab projectId available ho) */}
-      {projectId && (
+      {/* Multi-assignee picker — owner only, so an assignee never sees it.
+          When it is hidden the assigneeIds field is left unregistered and
+          keeps its defaultValues entry, so a status-only submit is not read
+          as an attempt to strip the assignees. */}
+      {projectId && requiresAssignee && canManageAssignees && (
         <Controller
           control={control}
           name="assigneeIds"

@@ -196,6 +196,7 @@ export type ProjectMemberPermission = {
   canCreateTasks: boolean;
   canDeleteTasks: boolean;
   canEditProject: boolean;
+  canEditTaskDetails: boolean;
 };
 
 export async function getProjectCapabilitiesAction(projectId: string) {
@@ -209,6 +210,9 @@ export async function getProjectMemberPermissionsAction(projectId: string) {
 
   if (workspace.ownerId !== user.id) {
     return { ok: false as const, error: "Only the workspace owner can manage project access." };
+  }
+  if (workspace.type === "PERSONAL") {
+    return { ok: false as const, error: "Personal workspaces do not have member permissions." };
   }
 
   const project = await prisma.project.findFirst({
@@ -240,6 +244,9 @@ export async function getProjectMemberPermissionsAction(projectId: string) {
         canCreateTasks: grant?.canCreateTasks ?? project.accessMode === "ALL_MEMBERS",
         canDeleteTasks: grant?.canDeleteTasks ?? false,
         canEditProject: grant?.canEditProject ?? grant?.permission === "EDIT",
+        // Opt-in everywhere: without it a member who is assigned to a task
+        // can move its status and nothing else.
+        canEditTaskDetails: grant?.canEditTaskDetails ?? false,
       };
     }),
   };
@@ -248,7 +255,10 @@ export async function getProjectMemberPermissionsAction(projectId: string) {
 export async function setProjectMemberPermissionsAction(
   projectId: string,
   memberId: string,
-  permissions: Pick<ProjectMemberPermission, "canCreateTasks" | "canDeleteTasks" | "canEditProject">,
+  permissions: Pick<
+    ProjectMemberPermission,
+    "canCreateTasks" | "canDeleteTasks" | "canEditProject" | "canEditTaskDetails"
+  >,
 ) {
   const user = await requireUser();
   const workspace = await getActiveWorkspace();
@@ -278,11 +288,14 @@ export async function setProjectMemberPermissionsAction(
     ...permissions,
     permission: permissions.canEditProject ? "EDIT" as const : "VIEW" as const,
   };
+  // A RESTRICTED member with every grant off loses their row — and with it
+  // all access — so each grant has to count as a reason to keep it.
   if (
     project.accessMode === "RESTRICTED" &&
     !permissions.canCreateTasks &&
     !permissions.canDeleteTasks &&
-    !permissions.canEditProject
+    !permissions.canEditProject &&
+    !permissions.canEditTaskDetails
   ) {
     await prisma.projectAccess.deleteMany({
       where: { projectId, userId: memberId },

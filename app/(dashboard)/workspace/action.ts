@@ -271,29 +271,14 @@ export async function deleteWorkspaceAction(
   return { ok: true };
 }
 
-// Workspace logos are stored as base64 data URLs (same mechanism as the
-// profile photo) so no object storage dependency is needed.
-const MAX_LOGO_CHARS = 3 * 1024 * 1024; // ~3 MB of base64 text ≈ 2 MB image
-
 /**
- * Sets (or clears) the logo ONLY for the given workspace. Owner-only.
+ * Clears the logo ONLY for the given workspace. Owner-only.
  * Branding is strictly per-workspace — this never touches the user's
  * profile photo (User.image) or any other workspace's logoUrl.
  */
-export async function updateWorkspaceLogoAction(
+export async function removeWorkspaceLogoAction(
   workspaceId: string,
-  logoUrl: string | null,
 ): Promise<{ ok: boolean; error?: string }> {
-  if (logoUrl !== null) {
-    if (!logoUrl.startsWith("data:image/")) {
-      return { ok: false, error: "Invalid image. Upload an image file." };
-    }
-
-    if (logoUrl.length > MAX_LOGO_CHARS) {
-      return { ok: false, error: "Image is too large. Please choose a smaller image." };
-    }
-  }
-
   const user = await requireUser();
   const workspace = await prisma.workspace.findFirst({
     where: { id: workspaceId, ownerId: user.id },
@@ -306,7 +291,7 @@ export async function updateWorkspaceLogoAction(
 
   await prisma.workspace.update({
     where: { id: workspace.id },
-    data: { logoUrl: logoUrl ?? null },
+    data: { logoUrl: null },
   });
 
   // Refresh the sidebar switcher + all layouts that render workspace logos.

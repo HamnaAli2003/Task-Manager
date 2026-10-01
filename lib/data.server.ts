@@ -66,6 +66,8 @@ function toTask(task: TaskRecord): Task {
             image: user.image,
         })),
         createdBy: task.createdBy ?? undefined,
+        updatedAt: task.updatedAt.toISOString(),
+        completedAt: task.completedAt?.toISOString() ?? null,
     };
 }
 
@@ -244,6 +246,7 @@ export async function createTask(
             status: input.status,
             priority: input.priority,
             due: input.due,
+            completedAt: input.status === "done" ? new Date() : null,
             taskAssignees: {
                 create: input.assignees.map(({ id }) => ({ userId: id })),
             },

@@ -36,7 +36,12 @@ export default async function DashboardLayout({
 
   return (
     <div className="relative min-h-screen bg-background text-text">
-      <DataSync projects={projects} tasks={tasks} />
+      <DataSync
+        projects={projects}
+        tasks={tasks}
+        workspaceId={activeWorkspace.id}
+        workspaceType={activeWorkspace.type}
+      />
       <UserSync user={session.user} />
 
       <DashboardSidebar

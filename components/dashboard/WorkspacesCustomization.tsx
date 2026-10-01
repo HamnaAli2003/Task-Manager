@@ -4,8 +4,8 @@ import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   deleteWorkspaceAction,
+  removeWorkspaceLogoAction,
   renameWorkspaceAction,
-  updateWorkspaceLogoAction,
 } from "@/app/(dashboard)/workspace/action";
 import TaskDeleteModal from "./TaskDeleteModal";
 
@@ -98,7 +98,7 @@ function WorkspaceBrandingCard({
       return;
     }
     if (file.size > MAX_IMAGE_BYTES) {
-      setError("Image is too large. Please choose a file under 2 MB.");
+      setError("Image exceeds the 2 MB upload limit. Choose a smaller image.");
       return;
     }
 
@@ -114,14 +114,28 @@ function WorkspaceBrandingCard({
       setLogoUrl(dataUrl);
 
       startTransition(async () => {
-        const result = await updateWorkspaceLogoAction(workspace.id, dataUrl);
-        if (result.error) {
-          setError(result.error);
+        try {
+          const formData = new FormData();
+          formData.append("logo", file);
+
+          const response = await fetch(
+            `/api/workspaces/${encodeURIComponent(workspace.id)}/logo`,
+            { method: "POST", body: formData },
+          );
+          const result = await response.json();
+
+          if (!response.ok || !result.ok) {
+            setError(result.error ?? "Could not upload the workspace logo.");
+            setLogoUrl(workspace.logoUrl ?? null);
+            return;
+          }
+
+          setSaved("Workspace logo updated.");
+          router.refresh();
+        } catch {
+          setError("Could not upload the workspace logo. Please try again.");
           setLogoUrl(workspace.logoUrl ?? null);
-          return;
         }
-        setSaved("Workspace logo updated.");
-        router.refresh();
       });
     };
     reader.readAsDataURL(file);
@@ -132,7 +146,7 @@ function WorkspaceBrandingCard({
     setSaved("");
 
     startTransition(async () => {
-      const result = await updateWorkspaceLogoAction(workspace.id, null);
+      const result = await removeWorkspaceLogoAction(workspace.id);
       if (result.error) {
         setError(result.error);
         return;
@@ -355,7 +369,9 @@ function WorkspaceBrandingCard({
       </div>
 
       {error && (
-        <p className="mt-3 text-sm font-medium text-danger">{error}</p>
+        <p role="alert" className="mt-3 text-sm font-medium text-danger">
+          {error}
+        </p>
       )}
       {saved && (
         <p className="mt-3 text-sm font-medium text-success">{saved}</p>

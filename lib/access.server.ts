@@ -9,6 +9,10 @@
 // - RESTRICTED projects: only users listed in ProjectAccess get in —
 //   VIEW (see + create tasks) or EDIT (tasks + project settings).
 // - No membership or no access row => NONE (treat as "not found").
+//
+// Task fields are graded separately (see getTaskFieldAccess): a member who
+// is ASSIGNED to a task moves its status, but rewriting the task itself is
+// an owner grant, and the assignee list is always owner-only.
 import { prisma } from "@/lib/prisma";
 
 export type ProjectAccess = {
@@ -16,6 +20,7 @@ export type ProjectAccess = {
     canView: boolean;
     canCreateTasks: boolean;
     canEditTasks: boolean;
+    canEditTaskDetails: boolean;
     canDeleteTasks: boolean;
     canDeleteProject: boolean;
     canManageProject: boolean; // edit/delete project + access settings
@@ -26,6 +31,7 @@ export const DENIED_ACCESS: ProjectAccess = {
     canView: false,
     canCreateTasks: false,
     canEditTasks: false,
+    canEditTaskDetails: false,
     canDeleteTasks: false,
     canDeleteProject: false,
     canManageProject: false,
@@ -57,6 +63,7 @@ export async function getProjectAccess(
             canView: true,
             canCreateTasks: true,
             canEditTasks: true,
+            canEditTaskDetails: true,
             canDeleteTasks: true,
             canDeleteProject: true,
             canManageProject: true,
@@ -80,6 +87,9 @@ export async function getProjectAccess(
             canView: true,
             canCreateTasks: access?.canCreateTasks ?? true,
             canEditTasks: true,
+            // Task-detail edits are always opt-in, even on ALL_MEMBERS
+            // projects — that is what keeps an assignee status-only.
+            canEditTaskDetails: access?.canEditTaskDetails ?? false,
             canDeleteTasks: access?.canDeleteTasks ?? false,
             canDeleteProject: access?.canDeleteProject ?? false,
             canManageProject: canEditProject,
@@ -96,6 +106,7 @@ export async function getProjectAccess(
             canView: true,
             canCreateTasks: access.canCreateTasks,
             canEditTasks: access.canEditProject,
+            canEditTaskDetails: access.canEditTaskDetails,
             canDeleteTasks: access.canDeleteTasks,
             canDeleteProject: access.canDeleteProject,
             canManageProject: access.canEditProject,
@@ -107,9 +118,81 @@ export async function getProjectAccess(
         canView: true,
         canCreateTasks: access.canCreateTasks,
         canEditTasks: true,
+        canEditTaskDetails: access.canEditTaskDetails,
         canDeleteTasks: access.canDeleteTasks,
         canDeleteProject: access.canDeleteProject,
         canManageProject: access.canEditProject || access.permission === "EDIT",
+    };
+}
+
+/** Which parts of ONE task the caller may write. */
+export type TaskFieldAccess = {
+    /** The caller may open/submit the edit form at all. */
+    canEdit: boolean;
+    /** status — granted to assignees, plus the creator in a personal workspace. */
+    canUpdateStatus: boolean;
+    /** title, description, priority, due. */
+    canEditDetails: boolean;
+    /** the assignee list — owner only, never delegated. */
+    canManageAssignees: boolean;
+    canDelete: boolean;
+};
+
+/**
+ * Resolves field-level access to a single task.
+ *
+
+ * An assignee is status-only by default: they can move the task through its
+ * workflow but cannot rewrite what the owner wrote, and they never manage the
+ * assignee list. The owner lifts the first restriction with the
+ * `canEditTaskDetails` grant; the second has no grant at all.
+ *
+ * Returns null when the task does not exist in the caller's workspace.
+ */
+export async function getTaskFieldAccess(
+    userId: string,
+    workspaceId: string,
+    taskId: string
+): Promise<TaskFieldAccess | null> {
+    const task = await prisma.task.findFirst({
+        where: { id: taskId, project: { workspaceId } },
+        select: {
+            projectId: true,
+            taskAssignees: { where: { userId }, select: { userId: true } },
+        },
+    });
+    if (!task) return null;
+
+    const [membership, workspace, access] = await Promise.all([
+        prisma.workspaceMember.findUnique({
+            where: { workspaceId_userId: { workspaceId, userId } },
+            select: { role: true },
+        }),
+        prisma.workspace.findUnique({
+            where: { id: workspaceId },
+            select: { type: true },
+        }),
+        getProjectAccess(userId, task.projectId),
+    ]);
+
+    const isOwner = membership?.role === "OWNER";
+    const isAssignee = task.taskAssignees.length > 0;
+
+    // Personal workspaces have no assignees, so the owner drives their own tasks.
+    const canUpdateStatus = isAssignee || (isOwner && workspace?.type === "PERSONAL");
+    // The owner grant wins outright; without it, being assigned caps the caller at
+    // status so a member cannot quietly re-scope work assigned to them.
+    const canEditDetails =
+        isOwner ||
+        access.canEditTaskDetails ||
+        (!isAssignee && access.canEditTasks);
+
+    return {
+        canEdit: canEditDetails || canUpdateStatus,
+        canUpdateStatus,
+        canEditDetails,
+        canManageAssignees: isOwner,
+        canDelete: access.canDeleteTasks,
     };
 }
 
@@ -133,27 +216,4 @@ export async function canCreateProjectInWorkspace(
     // Owner: role + ownership dono check (defense in depth).
     if (membership.role === "OWNER" && workspace.ownerId === userId) return true;
     return membership.canCreateProject;
-}
-
-/**
- * Only a task assignee may change its status.
- */
-export async function canUpdateTaskStatus(
-    userId: string,
-    taskId: string
-): Promise<boolean> {
-    const task = await prisma.task.findUnique({
-        where: { id: taskId },
-        select: {
-            projectId: true,
-            taskAssignees: {
-                where: { userId },
-                select: { userId: true },
-            },
-        },
-    });
-    if (!task) return false;
-
-    const access = await getProjectAccess(userId, task.projectId);
-    return access.canView && task.taskAssignees.length > 0;
 }

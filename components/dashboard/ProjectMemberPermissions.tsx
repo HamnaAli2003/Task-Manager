@@ -7,7 +7,11 @@ import {
     type ProjectMemberPermission,
 } from "@/app/(dashboard)/projects/actions";
 
-type PermissionKey = "canCreateTasks" | "canDeleteTasks" | "canEditProject";
+type PermissionKey =
+    | "canCreateTasks"
+    | "canDeleteTasks"
+    | "canEditProject"
+    | "canEditTaskDetails";
 
 export default function ProjectMemberPermissions({
     projectId,
@@ -55,6 +59,7 @@ export default function ProjectMemberPermissions({
                 canCreateTasks: updated.canCreateTasks,
                 canDeleteTasks: updated.canDeleteTasks,
                 canEditProject: updated.canEditProject,
+                canEditTaskDetails: updated.canEditTaskDetails,
             });
             if (!result.ok) {
                 setMembers((current) =>
@@ -70,7 +75,9 @@ export default function ProjectMemberPermissions({
             <div className="mb-4">
                 <h2 className="text-base font-bold text-text">Project member rights</h2>
                 <p className="mt-1 text-xs text-text-muted">
-                    Choose who can create tasks, delete tasks, or edit this project.
+                    Choose who can create tasks, edit task details, delete tasks, or
+                    edit this project. Members you assign a task to can always
+                    change its status; only you can change who it is assigned to.
                 </p>
             </div>
 
@@ -88,6 +95,7 @@ export default function ProjectMemberPermissions({
                             <div className="flex flex-wrap gap-x-4 gap-y-2">
                                 {([
                                     ["canCreateTasks", "Create tasks"],
+                                    ["canEditTaskDetails", "Edit task details"],
                                     ["canDeleteTasks", "Delete tasks"],
                                     ["canEditProject", "Edit project"],
                                 ] as const).map(([key, label]) => (

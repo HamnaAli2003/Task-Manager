@@ -6,6 +6,7 @@ import { useDataStore } from "@/lib/dataStore";
 
 export default function NewTaskPage() {
   const projects = useDataStore((state) => state.projects);
+  const activeWorkspaceType = useDataStore((state) => state.activeWorkspaceType);
   const addTask = useDataStore((state) => state.addTask);
 
   return (
@@ -41,6 +42,7 @@ export default function NewTaskPage() {
             projects={projects}
             action={addTask}
             submitLabel="Create task"
+            requiresAssignee={activeWorkspaceType !== "PERSONAL"}
           />
         </section>
       </div>

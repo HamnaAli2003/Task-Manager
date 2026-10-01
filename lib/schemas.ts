@@ -22,8 +22,9 @@ export const taskSchema = z.object({
   due: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Pick a valid due date"),
   assigneeIds: z
     .array(z.string().min(1))
-    .min(1, "Assign this task to at least one workspace member.")
-    .refine((ids) => new Set(ids).size === ids.length, "Assignees must be unique."),
+    .refine((ids) => new Set(ids).size === ids.length, "Assignees must be unique.")
+    .optional()
+    .default([]),
 });
 
 export type TaskFormInput = z.input<typeof taskSchema>;

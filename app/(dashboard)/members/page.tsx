@@ -221,6 +221,7 @@ export default async function MembersPage() {
                   <ActivityDeleteButton
                     activityId={event.id}
                     message={event.message}
+                    showSharedVisibility={workspace.type === "TEAM"}
                   />
                 </li>
               ))}

@@ -14,13 +14,15 @@ export default function ProjectPage() {
   );
   const tasks = useDataStore((state) => state.tasks);
   const hydrated = useDataStore((state) => state._hasHydrated);
+  const activeWorkspaceId = useDataStore((state) => state.activeWorkspaceId);
+  const activeWorkspaceType = useDataStore((state) => state.activeWorkspaceType);
   const trackProjectOpen = useDataStore((state) => state.trackProjectOpen);
 
   useEffect(() => {
-    if (hydrated && project) {
-      trackProjectOpen(project.id);
+    if (hydrated && project && activeWorkspaceId) {
+      trackProjectOpen(project.id, activeWorkspaceId);
     }
-  }, [hydrated, project, trackProjectOpen]);
+  }, [hydrated, project, activeWorkspaceId, trackProjectOpen]);
 
   if (hydrated && !project) {
     return (
@@ -141,7 +143,9 @@ export default function ProjectPage() {
               </Link>
             </section>
 
-            <ProjectMemberPermissions projectId={project.id} />
+            {activeWorkspaceType !== "PERSONAL" ? (
+              <ProjectMemberPermissions projectId={project.id} />
+            ) : null}
           </>
         )}
       </div>

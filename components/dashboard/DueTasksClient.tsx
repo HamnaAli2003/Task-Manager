@@ -37,6 +37,7 @@ export default function DueTasksClient() {
   const tasks = useDataStore((state) => state.tasks);
   const projects = useDataStore((state) => state.projects);
   const markTaskDone = useDataStore((state) => state.markTaskDone);
+  const workspaceType = useDataStore((state) => state.activeWorkspaceType);
   const user = useUser();
 
   const projectNames = new Map(
@@ -129,7 +130,8 @@ export default function DueTasksClient() {
                       </span>
                     </td>
                     <td className="px-3 py-3 text-right">
-                      {task.assignees.some((item) => item.id === user.id) ? (
+                      {task.assignees.some((item) => item.id === user.id) ||
+                        (workspaceType === "PERSONAL" && task.createdBy === user.id) ? (
                         <DueTaskDoneButton action={() => markTaskDone(task.id)} />
                       ) : null}
                     </td>

@@ -53,7 +53,7 @@ export default function ProfileForm({
       return;
     }
     if (file.size > MAX_IMAGE_BYTES) {
-      setError("Image is too large. Please choose a file under 2 MB.");
+      setError("Image exceeds the 2 MB upload limit. Choose a smaller image.");
       return;
     }
 
@@ -290,7 +290,9 @@ export default function ProfileForm({
         </div>
 
         {error && (
-          <p className="mt-4 text-center text-sm font-medium text-danger">{error}</p>
+          <p role="alert" className="mt-4 text-center text-sm font-medium text-danger">
+            {error}
+          </p>
         )}
         {saved && (
           <p className="mt-4 text-center text-sm font-medium text-success">{saved}</p>

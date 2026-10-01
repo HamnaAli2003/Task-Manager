@@ -38,11 +38,18 @@ export type ActivityEntry = {
   at: string;
 };
 
+export type RecentProjectEntry = {
+  projectId: string;
+  openedAt: string;
+};
+
 type DataState = {
   projects: Project[];
   tasks: Task[];
   activities: ActivityEntry[];
-  recentProjectIds: string[];
+  recentProjectsByWorkspace: Record<string, RecentProjectEntry[]>;
+  activeWorkspaceId: string;
+  activeWorkspaceType: "PERSONAL" | "TEAM" | null;
   _hasHydrated: boolean;
   addTask: (projectId: string, values: TaskFormOutput) => Promise<TaskActionResult>;
   updateTask: (taskId: string, values: TaskFormOutput) => Promise<TaskActionResult>;
@@ -51,8 +58,8 @@ type DataState = {
   addProject: (values: ProjectFormOutput) => Promise<ProjectActionResult>;
   updateProject: (projectId: string, values: ProjectFormOutput) => Promise<ProjectActionResult>;
   deleteProject: (projectId: string) => Promise<ProjectActionResult>;
-  trackProjectOpen: (projectId: string) => void;
-  setProjects: (projects: Project[], tasks: Task[]) => void;
+  trackProjectOpen: (projectId: string, workspaceId: string) => void;
+  setProjects: (projects: Project[], tasks: Task[], workspaceId: string, workspaceType: "PERSONAL" | "TEAM") => void;
   setHasHydrated: (hydrated: boolean) => void;
   reset: () => void;
 };
@@ -107,7 +114,9 @@ export const useDataStore = create<DataState>()(
       projects: [],
       tasks: [],
       activities: [],
-      recentProjectIds: [],
+      recentProjectsByWorkspace: {},
+      activeWorkspaceId: "",
+      activeWorkspaceType: null,
       _hasHydrated: false,
 
       addTask: async (projectId, values) => {
@@ -137,7 +146,16 @@ export const useDataStore = create<DataState>()(
 
         set((state) => ({
           tasks: state.tasks.map((item) =>
-            item.id === taskId ? { ...item, ...values } : item
+            item.id === taskId
+              ? {
+                ...item,
+                ...values,
+                updatedAt: new Date().toISOString(),
+                completedAt: values.status === "done"
+                  ? item.completedAt ?? new Date().toISOString()
+                  : null,
+              }
+              : item
           ),
           ...recordActivity(state, "task-updated", values.title, task.projectId),
         }));
@@ -173,7 +191,9 @@ export const useDataStore = create<DataState>()(
 
         set((state) => ({
           tasks: state.tasks.map((item) =>
-            item.id === taskId ? { ...item, status: "done" } : item
+            item.id === taskId
+              ? { ...item, status: "done", updatedAt: new Date().toISOString() }
+              : item
           ),
           ...recordActivity(state, "task-done", task.title, task.projectId),
         }));
@@ -237,46 +257,55 @@ export const useDataStore = create<DataState>()(
         set((state) => ({
           projects: state.projects.filter((item) => item.id !== projectId),
           tasks: state.tasks.filter((item) => item.projectId !== projectId),
-          recentProjectIds: state.recentProjectIds.filter((id) => id !== projectId),
+          recentProjectsByWorkspace: Object.fromEntries(
+            Object.entries(state.recentProjectsByWorkspace).map(([workspaceId, entries]) => [
+              workspaceId,
+              entries.filter((entry) => entry.projectId !== projectId),
+            ]),
+          ),
           ...recordActivity(state, "project-deleted", project?.name ?? "project", projectId),
         }));
 
         return result;
       },
-      reset: () => set({ activities: [], recentProjectIds: [] }),
+      reset: () => set({ activities: [], recentProjectsByWorkspace: {} }),
 
       setHasHydrated: (hydrated) => set({ _hasHydrated: hydrated }),
 
-      trackProjectOpen: (projectId) =>
+      trackProjectOpen: (projectId, workspaceId) =>
         set((state) => ({
-          recentProjectIds: [
-            projectId,
-            ...state.recentProjectIds.filter((id) => id !== projectId),
-          ].slice(0, 5),
+          recentProjectsByWorkspace: {
+            ...state.recentProjectsByWorkspace,
+            [workspaceId]: [
+              { projectId, openedAt: new Date().toISOString() },
+              ...(state.recentProjectsByWorkspace[workspaceId] ?? []).filter(
+                (entry) => entry.projectId !== projectId,
+              ),
+            ].slice(0, 20),
+          },
         })),
 
-      setProjects: (projects, tasks) => set({ projects, tasks }),
+      setProjects: (projects, tasks, workspaceId, workspaceType) =>
+        set({ projects, tasks, activeWorkspaceId: workspaceId, activeWorkspaceType: workspaceType }),
     }),
     {
       name: "projectflow-v2",
       storage: createJSONStorage(() => localStorage),
-      version: 2,
+      version: 3,
       migrate: (persisted) => {
         const p = persisted as {
           activities?: ActivityEntry[];
-          recentProjectIds?: string[];
+          recentProjectsByWorkspace?: Record<string, RecentProjectEntry[]>;
         };
         return {
           activities: Array.isArray(p.activities) ? p.activities : [],
-          recentProjectIds: Array.isArray(p.recentProjectIds)
-            ? p.recentProjectIds
-            : [],
+          recentProjectsByWorkspace: p.recentProjectsByWorkspace ?? {},
         } as DataState;
       },
 
       partialize: (state) => ({
         activities: state.activities,
-        recentProjectIds: state.recentProjectIds,
+        recentProjectsByWorkspace: state.recentProjectsByWorkspace,
       }),
       onRehydrateStorage: () => (state) => {
         const target = state ?? useDataStore.getState();

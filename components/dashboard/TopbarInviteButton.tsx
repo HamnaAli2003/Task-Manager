@@ -71,10 +71,12 @@ export default function DashboardSidebar({
     const [open, setOpen] = useState(false);
     const pathname = usePathname();
     const allProjects = useStoreData(projects, (state) => state.projects);
-    const recentProjectIds = useDataStore((state) => state.recentProjectIds);
+    const recentEntries = useDataStore(
+        (state) => state.recentProjectsByWorkspace[activeWorkspaceId] ?? [],
+    );
 
-    const recentProjects = recentProjectIds
-        .map((id) => allProjects.find((project) => project.id === id))
+    const recentProjects = recentEntries
+        .map((entry) => allProjects.find((project) => project.id === entry.projectId))
         .filter((project): project is Project => Boolean(project));
 
     const close = () => setOpen(false);

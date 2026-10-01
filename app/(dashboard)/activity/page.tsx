@@ -109,6 +109,7 @@ export default async function ActivityPage() {
                                         <ActivityDeleteButton
                                             activityId={activity.id}
                                             message={activity.message}
+                                            showSharedVisibility={workspace.type === "TEAM"}
                                         />
                                     </article>
                                 ),

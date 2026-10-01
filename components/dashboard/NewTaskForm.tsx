@@ -10,12 +10,14 @@ type NewTaskFormProps = {
   projects: Project[];
   action: (projectId: string, values: TaskFormOutput) => Promise<TaskActionResult>;
   submitLabel: string;
+  requiresAssignee: boolean;
 };
 
 export default function NewTaskForm({
   projects,
   action,
   submitLabel,
+  requiresAssignee,
 }: NewTaskFormProps) {
   const [projectId, setProjectId] = useState(projects[0]?.id ?? "");
 
@@ -42,6 +44,7 @@ export default function NewTaskForm({
 
       <TaskForm
         projectId={projectId}
+        requiresAssignee={requiresAssignee}
         action={(values) => action(projectId, values)}
         redirectTo={`/projects/${projectId}/tasks`}
         submitLabel={submitLabel}

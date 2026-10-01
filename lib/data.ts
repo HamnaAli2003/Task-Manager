@@ -42,6 +42,8 @@ export type Task = {
   due: string;
   assignees: { id: string; name: string; image: string | null }[];
   createdBy?: string;
+  updatedAt?: string;
+  completedAt?: string | null;
 };
 
 export type TaskFilters = {
