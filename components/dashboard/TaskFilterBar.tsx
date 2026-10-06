@@ -56,7 +56,7 @@ export default function TaskFilterBar() {
 
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <label className="relative min-w-40 flex-1">
+      <label className="relative w-full min-w-0 sm:flex-1 sm:min-w-40">
         <svg
           viewBox="0 0 24 24"
           aria-hidden="true"
@@ -99,7 +99,7 @@ export default function TaskFilterBar() {
           })),
         ]}
         ariaLabel="Filter by status"
-        className="w-44"
+        className="w-full sm:w-44"
         showAvatars={false}
       />
 
@@ -114,7 +114,7 @@ export default function TaskFilterBar() {
           })),
         ]}
         ariaLabel="Filter by priority"
-        className="w-44"
+        className="w-full sm:w-44"
         showAvatars={false}
       />
 

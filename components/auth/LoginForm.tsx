@@ -11,8 +11,11 @@ import {
   loginWithGoogle,
   loginWithPassword,
   type AuthResult,
-  type EmailCheck,
 } from "@/app/(auth)/login/action";
+
+type EmailCheck = {
+  available: boolean;
+};
 
 const loginSchema = z.object({
   password: z

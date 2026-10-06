@@ -2,62 +2,51 @@
 
 import { auth, signIn, signOut } from "@/auth";
 import { AuthError } from "next-auth";
-import bcrypt from "bcryptjs";
-import { prisma } from "@/lib/prisma";
+import { isEmailTaken, createUser, deleteUserAndOwnedWorkspaces } from "@/lib/auth.service";
 
 export type AuthResult = { error?: string };
 
-export type EmailCheck = {
-  available: boolean;
-};
-
-export async function checkEmail(email: string): Promise<EmailCheck> {
+/** Signup form: is this email free? (convenience only — signup re-checks) */
+export async function checkEmail(email: string): Promise<{ available: boolean }> {
   const clean = email.trim().toLowerCase();
   const valid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clean);
-  if (!clean || !valid) return { available: false };
+  if (!valid) return { available: false };
 
-  const user = await prisma.user.findUnique({
-    where: { email: clean },
-    select: { id: true },
-  });
-
-  return { available: !user };
+  return { available: !(await isEmailTaken(clean)) };
 }
 
+/** Email + password login. */
 export async function loginWithPassword(
   email: string,
   password: string
 ): Promise<AuthResult> {
-  const session = await auth();
-  if (session?.user) return { error: "You are already logged in." };
+  if ((await auth())?.user) return { error: "You are already logged in." };
 
   try {
     await signIn("credentials", { email, password, redirectTo: "/dashboard" });
     return {};
   } catch (error) {
     if (error instanceof AuthError) {
-      const existing = await prisma.user.findUnique({
-        where: { email: email.trim().toLowerCase() },
-        select: { id: true },
-      });
-      if (!existing) return { error: "This email is not registered." };
-      return { error: "Incorrect email or password." };
+      const taken = await isEmailTaken(email);
+      return {
+        error: taken
+          ? "Incorrect email or password."
+          : "This email is not registered.",
+      };
     }
     throw error;
   }
 }
 
+/** Google sign-in from the login page. */
 export async function loginWithGoogle(): Promise<AuthResult> {
-  const session = await auth();
-  if (session?.user)
-    return {
-      error:
-        "You are already signed in with Google. You can't create a new account or sign in again until you log out.",
-    };
-
+  if ((await auth())?.user) {
+    return { error: "You are already signed in. Please log out first." };
+  }
   return {};
 }
 
+/** Create account, then log in. */
 export async function registerUser(
   name: string,
   email: string,
@@ -66,21 +55,20 @@ export async function registerUser(
   const cleanName = name.trim();
   const cleanEmail = email.toLowerCase().trim();
 
-  const session = await auth();
-  if (session?.user) return { error: "You are already logged in." };
+  if ((await auth())?.user) return { error: "You are already logged in." };
 
   if (!cleanName || !cleanEmail.includes("@") || password.length < 6) {
     return { error: "Please complete all fields correctly." };
   }
 
-  const existing = await prisma.user.findUnique({ where: { email: cleanEmail } });
-  if (existing) return { error: "An account with this email already exists." };
+  const created = await createUser(cleanName, cleanEmail, password);
+  if (!created.ok) return { error: created.error };
 
-  await prisma.user.create({
-    data: { name: cleanName, email: cleanEmail, passwordHash: await bcrypt.hash(password, 12) },
+  await signIn("credentials", {
+    email: cleanEmail,
+    password,
+    redirectTo: "/dashboard",
   });
-
-  await signIn("credentials", { email: cleanEmail, password, redirectTo: "/dashboard" });
   return {};
 }
 
@@ -88,17 +76,12 @@ export async function logout(): Promise<void> {
   await signOut({ redirectTo: "/login" });
 }
 
+/** Delete account + owned workspaces, then log out. */
 export async function deleteAccount(): Promise<AuthResult> {
   const session = await auth();
   if (!session?.user?.id) return { error: "You are not signed in." };
 
-  // Delete workspaces this user owns first (members + projects cascade with it).
-  await prisma.workspace.deleteMany({ where: { ownerId: session.user.id } });
-
-  // Now the user (Account + Session rows cascade-delete with it).
-  await prisma.user.delete({ where: { id: session.user.id } });
-
+  await deleteUserAndOwnedWorkspaces(session.user.id);
   await signOut({ redirectTo: "/login" });
   return {};
 }
-

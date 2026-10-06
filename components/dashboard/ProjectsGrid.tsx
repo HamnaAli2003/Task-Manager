@@ -111,11 +111,11 @@ export default function ProjectsGrid({
                   </span>
                 </div>
 
-                <h2 className="mt-5 text-base font-semibold text-text">
+                <h2 className="mt-5 break-words text-base font-semibold text-text">
                   {project.name}
                 </h2>
 
-                <p className="mt-2 flex-1 text-sm leading-5 text-text-secondary">
+                <p className="mt-2 flex-1 break-words text-sm leading-5 text-text-secondary">
                   {project.description}
                 </p>
 

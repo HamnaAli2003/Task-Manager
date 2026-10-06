@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import SidebarUser from "./SidebarUser";
 import NotificationBell from "./NotificationBell";
 import ThemeToggle from "../ThemeToggle";
@@ -76,10 +76,60 @@ export default function DashboardSidebar({
     activeWorkspaceId: string;
     children: React.ReactNode;
 }>) {
-    const [open, setOpen] = useState(false);
+    const [isDesktop, setIsDesktop] = useState(true);
     const pathname = usePathname();
 
-    const close = () => setOpen(false);
+    // The drawer stores the route it was opened on rather than a plain
+    // boolean, so any navigation — including browser back/forward, which
+    // never runs a link onClick — closes it by derivation, with no effect
+    // needed to mirror the pathname into state.
+    const [openedAt, setOpenedAt] = useState<string | null>(null);
+    const open = openedAt === pathname;
+
+    const openMenu = () => setOpenedAt(pathname);
+    const close = () => setOpenedAt(null);
+
+    // Tracks the md breakpoint so the drawer only behaves like a drawer below
+    // it. Rendered as state (not just CSS) because the off-screen drawer has
+    // to be made `inert` on mobile — otherwise keyboard users tab straight
+    // into navigation they cannot see.
+    useEffect(() => {
+        const query = window.matchMedia("(min-width: 768px)");
+
+        function sync() {
+            setIsDesktop(query.matches);
+        }
+
+        sync();
+        query.addEventListener("change", sync);
+
+        return () => query.removeEventListener("change", sync);
+    }, []);
+
+    // While the drawer is open on mobile: lock background scroll and allow
+    // Escape to dismiss. Scroll chaining is contained by `overscroll-contain`
+    // on the panel itself. If the viewport grows to md the sidebar is always
+    // visible, so there is nothing to lock.
+    useEffect(() => {
+        if (!open) return;
+        if (window.matchMedia("(min-width: 768px)").matches) return;
+
+        const { body } = document;
+        const previousOverflow = body.style.overflow;
+
+        body.style.overflow = "hidden";
+
+        function handleKeyDown(event: globalThis.KeyboardEvent) {
+            if (event.key === "Escape") setOpenedAt(null);
+        }
+
+        document.addEventListener("keydown", handleKeyDown);
+
+        return () => {
+            body.style.overflow = previousOverflow;
+            document.removeEventListener("keydown", handleKeyDown);
+        };
+    }, [open]);
 
     const isActive = (href: string) =>
         pathname === href || pathname.startsWith(`${href}/`);
@@ -89,6 +139,8 @@ export default function DashboardSidebar({
             ? "bg-accent-soft font-semibold text-accent shadow-(--clay-inset-high) dark:text-purple-300"
             : "font-medium text-text-secondary hover:bg-accent-soft hover:text-accent dark:hover:text-purple-300"
         }`;
+
+    const isDrawerMode = !isDesktop;
 
     return (
         <div className="relative z-10 flex min-h-screen flex-col md:flex-row">
@@ -106,14 +158,16 @@ export default function DashboardSidebar({
 
                 <button
                     type="button"
-                    onClick={() => setOpen(true)}
+                    onClick={openMenu}
                     aria-label="Open menu"
+                    aria-expanded={open}
+                    aria-controls="dashboard-sidebar"
                     className="
-              flex size-9 items-center justify-center
+              flex size-10 items-center justify-center
               rounded-xl
               border border-clay-edge
               bg-clay-bg
-              text-base text-text
+              text-lg text-text
               shadow-(--clay-drop)
             "
                 >
@@ -122,7 +176,7 @@ export default function DashboardSidebar({
             </div>
 
             {/* Backdrop */}
-            {open && (
+            {open && isDrawerMode && (
                 <div
                     className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm md:hidden"
                     onClick={close}
@@ -132,15 +186,22 @@ export default function DashboardSidebar({
 
             {/* Sidebar (drawer on mobile, sticky clay column on md+) */}
             <aside
+                id="dashboard-sidebar"
+                inert={isDrawerMode && !open ? true : undefined}
+                aria-hidden={isDrawerMode && !open ? true : undefined}
+                {...(isDrawerMode && open
+                    ? { role: "dialog", "aria-modal": true, "aria-label": "Navigation" }
+                    : {})}
                 className={`
           fixed inset-y-0 left-0 z-50
           flex w-[min(18rem,calc(100vw-1rem))] flex-col p-2
           transition-transform duration-300 ease-in-out
+          motion-reduce:transition-none
           sm:w-72 sm:p-3 md:sticky md:top-0 md:z-auto md:h-screen md:translate-x-0
           ${open ? "translate-x-0" : "-translate-x-full"}
         `}
             >
-                <div className="flex h-full min-h-0 flex-col overflow-y-auto rounded-3xl border border-glass-border bg-glass-bg/75 p-3 shadow-(--glass-shadow) backdrop-blur-2xl sm:p-5 md:overflow-hidden">
+                <div className="flex h-full min-h-0 flex-col overflow-y-auto overscroll-contain rounded-3xl border border-glass-border bg-glass-bg/75 p-3 shadow-(--glass-shadow) backdrop-blur-2xl sm:p-5 nice-scrollbar">
                     {/* Logo */}
                     <div className="mb-9 flex items-start gap-2">
                         <div className="flex min-w-0 flex-1 items-center gap-3">
@@ -178,9 +239,9 @@ export default function DashboardSidebar({
                             onClick={close}
                             aria-label="Close menu"
                             className="
-                flex size-8 items-center justify-center
+                flex size-10 shrink-0 items-center justify-center
                 rounded-xl
-                text-base text-text-muted
+                text-lg text-text-muted
                 transition hover:text-text
                 md:hidden
               "

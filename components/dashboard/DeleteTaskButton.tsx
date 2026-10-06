@@ -37,8 +37,8 @@ export default function DeleteTaskButton({
         aria-label="Delete task"
         title="Delete task"
         className="
-          inline-flex size-7 items-center justify-center
-          rounded-md border border-clay-edge bg-clay-bg
+          inline-flex size-9 items-center justify-center
+          rounded-lg border border-clay-edge bg-clay-bg
           text-danger shadow-sm transition
           hover:bg-danger-light hover:text-danger
           dark:hover:text-white

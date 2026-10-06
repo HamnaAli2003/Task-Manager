@@ -11,8 +11,12 @@ import {
   loginWithGoogle,
   registerUser,
   type AuthResult,
-  type EmailCheck,
 } from "@/app/(auth)/login/action";
+
+type EmailCheck = {
+  available: boolean;
+  [key: string]: unknown;
+};
 
 const signupSchema = z
     .object({

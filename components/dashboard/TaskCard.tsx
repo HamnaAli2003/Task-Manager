@@ -115,7 +115,7 @@ export default function TaskCard({
           />
 
           <div className="flex min-w-0 flex-1 flex-col">
-            <h3 className="text-sm font-semibold leading-snug text-text">
+            <h3 className="break-words text-sm font-semibold leading-snug text-text">
               {task.title}
             </h3>
 
@@ -199,8 +199,8 @@ export default function TaskCard({
                 aria-label={`${canEditTask ? "Edit" : "Update status of"} ${task.title}`}
                 title={`${canEditTask ? "Edit" : "Update status of"} ${task.title}`}
                 className="
-                  inline-flex size-7 items-center justify-center
-                  rounded-md border border-clay-edge bg-clay-bg
+                  inline-flex size-9 items-center justify-center
+                  rounded-lg border border-clay-edge bg-clay-bg
                   text-accent shadow-sm transition
                   hover:bg-accent-soft hover:text-accent-hover
                 "

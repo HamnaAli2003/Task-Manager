@@ -197,23 +197,23 @@ export default function WorkspaceSwitcher({
               className="absolute inset-0 cursor-default"
             />
 
-            <div className="relative w-full max-w-xl rounded-[28px] border border-white/10 bg-[#0d1117]/95 p-8 shadow-2xl shadow-black/30">
+            <div className="relative w-full max-w-xl rounded-[28px] border border-white/10 bg-[#0d1117]/95 p-5 shadow-2xl shadow-black/30 sm:p-8">
               <h2
                 id="workspace-error-title"
-                className="text-3xl font-bold text-white"
+                className="break-words text-xl font-bold text-white sm:text-3xl"
               >
                 {activeWorkspace ? "Workspace update" : "Workspace access"}
               </h2>
 
-              <p className="mt-5 text-xl leading-8 text-slate-200">
+              <p className="mt-4 break-words text-sm leading-6 text-slate-200 sm:mt-5 sm:text-xl sm:leading-8">
                 {workspaceError}
               </p>
 
-              <div className="mt-7 flex justify-center">
+              <div className="mt-6 flex justify-center sm:mt-7">
                 <button
                   type="button"
                   onClick={() => setWorkspaceError(null)}
-                  className="rounded-full border border-[#9fe9d9] bg-[#9fe9d9] px-12 py-3 text-2xl font-bold text-slate-900 shadow-[0_0_0_2px_rgba(159,233,217,0.25)] transition hover:brightness-95"
+                  className="w-full rounded-full border border-[#9fe9d9] bg-[#9fe9d9] px-6 py-2.5 text-base font-bold text-slate-900 shadow-[0_0_0_2px_rgba(159,233,217,0.25)] transition hover:brightness-95 sm:w-auto sm:px-12 sm:py-3 sm:text-2xl"
                 >
                   OK
                 </button>

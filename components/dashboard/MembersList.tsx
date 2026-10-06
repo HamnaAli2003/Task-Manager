@@ -92,26 +92,30 @@ export default function MembersList({
               </div>
 
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-semibold text-text">
-                  {member.user.name ?? "Unnamed user"}
-                </p>
+                {/* Name + role share a wrapping row so the badge drops below
+                    the name on narrow screens instead of squeezing it out. */}
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                  <p className="min-w-0 truncate text-sm font-semibold text-text">
+                    {member.user.name ?? "Unnamed user"}
+                  </p>
+
+                  <span
+                    className={`
+                  shrink-0 rounded-full px-2.5 py-0.5 text-[11px] font-semibold
+                  ${member.role === "OWNER"
+                      ? "bg-accent/15 text-accent"
+                      : "bg-info/15 text-info"
+                    }
+                `}
+                  >
+                    {member.role === "OWNER" ? "👑 Owner" : "Member"}
+                  </span>
+                </div>
+
                 <p className="truncate text-xs text-text-muted">
                   {member.user.email ?? "No email"}
                 </p>
               </div>
-
-              {/* Role badge */}
-              <span
-                className={`
-                  shrink-0 rounded-full px-2.5 py-0.5 text-[11px] font-semibold
-                  ${member.role === "OWNER"
-                    ? "bg-accent/15 text-accent"
-                    : "bg-info/15 text-info"
-                  }
-                `}
-              >
-                {member.role === "OWNER" ? "👑 Owner" : "Member"}
-              </span>
 
               {/* Owner-only remove: never for the owner's own row */}
               {isOwner && member.role !== "OWNER" && member.user.id !== viewerId && (

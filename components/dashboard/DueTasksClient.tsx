@@ -78,7 +78,9 @@ export default function DueTasksClient() {
         </p>
       ) : (
         <div className="hide-scrollbar max-h-96 overflow-auto">
-          <table className="w-full min-w-145 border-collapse text-left text-xs">
+          {/* Wide enough to keep the columns readable, narrow enough that a
+              360px phone only scrolls a little instead of a lot. */}
+          <table className="w-full min-w-[28rem] border-collapse text-left text-xs">
             <thead className="sticky top-0 bg-glass-bg text-[10px] font-medium text-text-muted">
               <tr>
                 <th className="px-3 py-2 font-medium">Task</th>
